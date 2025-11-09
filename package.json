@@ -6,6 +6,6 @@
     "build:icons": "node buildIcons.js"
   },
   "devDependencies": {
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.5"
   }
 }
