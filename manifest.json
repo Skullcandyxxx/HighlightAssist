@@ -44,7 +44,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
+      "resources": ["injected.js", "highlight-tool.js"],
       "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"]
     }
   ],
