@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highlight Assist</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 360px;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .tagline {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .content {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.98);
+        }
+        .status-card {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+        .status-icon {
+            font-size: 20px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .status-card.active {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: #166534;
+            border: 2px solid #86efac;
+        }
+        .status-card.active .status-icon {
+            background: #22c55e;
+        }
+        .status-card.inactive {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+        }
+        .status-card.inactive .status-icon {
+            background: #ef4444;
+        }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        button {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+        }
+        .info-box {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .info-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .info-list {
+            font-size: 12px;
+            color: #475569;
+            line-height: 1.6;
+            padding-left: 0;
+            list-style: none;
+        }
+        .info-list li {
+            padding: 4px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .info-list li:before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .shortcut {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            text-align: center;
+            color: #64748b;
+            margin-top: 12px;
+        }
+        .shortcut kbd {
+            background: #f1f5f9;
+            padding: 3px 7px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            font-family: monospace;
+            font-size: 11px;
+            color: #1e293b;
+        }
+        .footer {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 1px solid rgba(0,0,0,0.05);
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🎯</div>
+            <div>
+                <h1>Highlight Assist</h1>
+                <div class="tagline">Visual UI Debugger</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div id="status" class="status-card inactive">
+            <div class="status-icon">⚫</div>
+            <div>Tool is Inactive</div>
+        </div>
+
+        <div class="btn-group">
+            <button id="toggleBtn" class="btn-primary">
+                <span>🚀</span> Enable Highlight Tool
+            </button>
+            <button id="settingsBtn" class="btn-secondary">
+                <span>⚙️</span> Settings & Preferences
+            </button>
+        </div>
+
+        <div class="info-box">
+            <div class="info-title">
+                <span>⚡</span> Quick Features
+            </div>
+            <ul class="info-list">
+                <li>Click any element to inspect</li>
+                <li>View real-time element properties</li>
+                <li>Send structured data to AI tools</li>
+                <li>Works offline on localhost</li>
+            </ul>
+        </div>
+
+        <div class="shortcut">
+            Keyboard shortcut: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>
+        </div>
+    </div>
+
+    <div class="footer">
+        Made with ❤️ by <a href="https://github.com/Skullcandyxxx" target="_blank">Skullcandyxxx</a>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

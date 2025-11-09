@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Highlight Assist - Visual UI Debugger",
+  "short_name": "Highlight Assist",
+  "version": "1.0.0",
+  "description": "Professional UI debugging tool for developers. Inspect elements visually, send structured data to AI assistants, and debug faster without screenshots.",
+  "author": "Skullcandyxxx <glfalliance@gmail.com>",
+  "homepage_url": "https://github.com/Skullcandyxxx/HighlightAssist",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://*.local/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Toggle Highlight Assist"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"]
+    }
+  ],
+  "commands": {
+    "toggle-highlight": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "Command+Shift+H"
+      },
+      "description": "Toggle Highlight Assist overlay"
+    }
+  },
+  "minimum_chrome_version": "88"
+}
