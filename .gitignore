@@ -31,3 +31,8 @@ desktop.ini
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Private marketing/internal docs
+MARKETING.md
+LAUNCH_CHECKLIST.md
+README.old.md
