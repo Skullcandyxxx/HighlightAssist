@@ -1,4 +1,4 @@
-"""
+﻿"""
 HighlightAssist WebSocket Bridge
 Maintains persistent WebSocket connections and coordinates between extension and services
 """
