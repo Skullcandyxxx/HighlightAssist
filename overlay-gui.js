@@ -1514,10 +1514,10 @@ function showSetupWizard() {
   
   html += '</div>';
   
-  // Download button
-  html += '<a href="' + installerUrl + installerFile + '" download target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;">';
+  // Download button (uses data attribute for installer URL)
+  html += '<button id="ha-download-installer" data-installer-url="' + installerUrl + installerFile + '" data-installer-name="' + installerFile + '" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;">';
   html += ' Download Installer';
-  html += '</a>';
+  html += '</button>';
   
   // Manual link
   html += '<div style="margin-top: 16px;">';
@@ -3132,6 +3132,33 @@ function detectOS() {
         
         updateUI();
       });
+    });
+
+    // Setup wizard download button handler
+    document.addEventListener('click', function(e) {
+      if (e.target.id === 'ha-download-installer') {
+        var url = e.target.getAttribute('data-installer-url');
+        var filename = e.target.getAttribute('data-installer-name');
+        
+        log('Downloading installer: ' + filename, 'info');
+        
+        fetch(url)
+          .then(function(response) { return response.blob(); })
+          .then(function(blob) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            log('Installer downloaded successfully', 'success');
+          })
+          .catch(function(error) {
+            logError(error, 'Download installer');
+            alert('Download failed. Please visit: ' + url);
+          });
+      }
     });
 
     var isDragging = false;
