@@ -3138,29 +3138,51 @@ function detectOS() {
       });
     });
 
-    // Setup wizard download button handler
+    // Setup wizard download button handler (using event delegation)
     document.addEventListener('click', function(e) {
-      if (e.target.id === 'ha-download-installer') {
-        var url = e.target.getAttribute('data-installer-url');
-        var filename = e.target.getAttribute('data-installer-name');
+      var target = e.target;
+      
+      // Handle button or its children (in case click is on text node)
+      if (target.id === 'ha-download-installer' || target.closest('#ha-download-installer')) {
+        if (!target.id) target = target.closest('#ha-download-installer');
+        
+        var url = target.getAttribute('data-installer-url');
+        var filename = target.getAttribute('data-installer-name');
+        
+        if (!url || !filename) {
+          log('Download button missing data attributes', 'error');
+          return;
+        }
         
         log('Downloading installer: ' + filename, 'info');
+        log('URL: ' + url, 'info');
         
         fetch(url)
-          .then(function(response) { return response.blob(); })
+          .then(function(response) { 
+            if (!response.ok) {
+              throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            }
+            return response.blob(); 
+          })
           .then(function(blob) {
             var a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = filename;
+            a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-            log('Installer downloaded successfully', 'success');
+            setTimeout(function() {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(a.href);
+            }, 100);
+            log('Installer downloaded successfully: ' + filename, 'success');
           })
           .catch(function(error) {
             logError(error, 'Download installer');
-            alert('Download failed. Please visit: ' + url);
+            var confirmOpen = confirm('Download failed: ' + error.message + '\n\nOpen installer URL in new tab?');
+            if (confirmOpen) {
+              window.open(url, '_blank');
+            }
           });
       }
     });
