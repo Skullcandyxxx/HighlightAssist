@@ -1,0 +1,89 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Install Inno Setup
+      run: |
+        choco install innosetup -y
+    
+    - name: Create installer images (placeholder)
+      run: |
+        # Create placeholder images for wizard
+        New-Item -ItemType Directory -Force -Path . | Out-Null
+        # You can replace these with actual images later
+        echo "Placeholder for wizard images" | Out-Null
+    
+    - name: Build installer
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
+    
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: HighlightAssist-Installer
+        path: installers/HighlightAssist-Setup-v*.exe
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          installers/HighlightAssist-Setup-v*.exe
+          installers/HighlightAssist-Setup-Windows.bat
+          installers/HighlightAssist-Setup-Linux.sh
+          installers/HighlightAssist-Setup-macOS.sh
+        body: |
+          ## HighlightAssist v${{ github.ref_name }}
+          
+          ### 🪟 Windows Installation
+          
+          **Recommended:** Download `HighlightAssist-Setup-v*.exe` for a professional installer with:
+          - ✅ Python dependency check
+          - ✅ Automatic dependency installation
+          - ✅ Start menu shortcuts
+          - ✅ Auto-start on Windows boot
+          - ✅ Easy uninstall
+          
+          **Alternative:** Use `HighlightAssist-Setup-Windows.bat` for manual installation
+          
+          ### 🐧 Linux Installation
+          
+          Download and run `HighlightAssist-Setup-Linux.sh`:
+          ```bash
+          chmod +x HighlightAssist-Setup-Linux.sh
+          ./HighlightAssist-Setup-Linux.sh
+          ```
+          
+          ### 🍎 macOS Installation
+          
+          Download and run `HighlightAssist-Setup-macOS.sh`:
+          ```bash
+          chmod +x HighlightAssist-Setup-macOS.sh
+          ./HighlightAssist-Setup-macOS.sh
+          ```
+          
+          ---
+          
+          **What's New:**
+          - Professional Windows installer (.exe)
+          - Cross-platform installers for Linux and macOS
+          - Animated setup wizard in extension
+          - Enhanced error handling and logging
+          
+          **System Requirements:**
+          - Python 3.8 or higher
+          - Modern web browser (Chrome, Firefox, Edge, Opera, Brave)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
