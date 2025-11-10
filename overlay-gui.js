@@ -1,4 +1,4 @@
-﻿// ====================================================================
+// ====================================================================
 // HighlightAssist - Complete GUI Overlay (Browser Extension Port)
 // Original React functionality ported to vanilla JS
 // ====================================================================
@@ -1545,7 +1545,7 @@ function detectOS() {
 }
 
 
-  function renderBridgeTab\(\) \{
+  function renderBridgeTab() {
     var statusColor = state.bridgeConnected ? '#10b981' : '#ef4444';
     var statusText = state.bridgeConnected ? '✓ Connected' : '✗ Disconnected';
     
