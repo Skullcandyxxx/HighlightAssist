@@ -1467,7 +1467,7 @@
 // Enhanced setup wizard with animation
 function showSetupWizard() {
   var os = detectOS(); // 'windows', 'mac', or 'linux'
-  var installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
+  var installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/';
   var installerFile = '';
   var icon = '';
   
