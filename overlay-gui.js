@@ -1467,20 +1467,24 @@
 // Enhanced setup wizard with animation
 function showSetupWizard() {
   var os = detectOS(); // 'windows', 'mac', or 'linux'
-  var installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/installers/';
+  var installerUrl = '';
   var installerFile = '';
   var installerName = '';
   var icon = '';
   
   if (os === 'windows') {
-    installerFile = 'HighlightAssist-Setup-Windows.bat';
-    installerName = 'Windows Installer (.bat)';
+    // Point to GitHub Releases for .exe installer (once built by GitHub Actions)
+    installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
+    installerFile = 'HighlightAssist-Setup-v3.4.0.exe';
+    installerName = 'Windows Installer (.exe)';
     icon = '🪟';
   } else if (os === 'mac') {
+    installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/installers/';
     installerFile = 'HighlightAssist-Setup-macOS.sh';
     installerName = 'macOS Installer (.sh)';
     icon = '🍎';
   } else {
+    installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/installers/';
     installerFile = 'HighlightAssist-Setup-Linux.sh';
     installerName = 'Linux Installer (.sh)';
     icon = '🐧';
