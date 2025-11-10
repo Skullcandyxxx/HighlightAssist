@@ -1515,7 +1515,7 @@ function showSetupWizard() {
   html += '</div>';
   
   // Download button
-  html += '<a href="' + installerUrl + installerFile + '" download style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">';
+  html += '<a href="' + installerUrl + installerFile + '" download target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;">';
   html += ' Download Installer';
   html += '</a>';
   
@@ -1530,6 +1530,7 @@ function showSetupWizard() {
   html += '<style>';
   html += '@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }';
   html += '@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }';
+  html += 'a:hover { transform: scale(1.05) !important; }';
   html += '</style>';
   
   return html;
