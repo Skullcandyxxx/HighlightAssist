@@ -1581,6 +1581,11 @@ function detectOS() {
     html += '</button>';
     html += '</div>';
     
+    // Show setup wizard if bridge not connected
+    if (!state.bridgeConnected) {
+      html += showSetupWizard();
+    }
+    
     // AI Configuration Helper
     html += '<div style="background-color: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 10px;">';
     html += '<div style="font-size: 9px; font-weight: 600; color: #60a5fa; margin-bottom: 6px;">💡 AI SETUP GUIDE</div>';
@@ -1591,7 +1596,7 @@ function detectOS() {
     
     html += '</div>';
     
-    // Manual Configuration (Collapsible)</
+    // Manual Configuration (Collapsible)
     html += '<details style="margin-bottom: 16px;"><summary style="padding: 10px; background-color: rgba(100, 116, 139, 0.15); border: 1px solid rgba(100, 116, 139, 0.3); border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; color: #94a3b8;">⚙️ Manual Configuration</summary>';
     html += '<div style="padding: 12px; background-color: rgba(15, 23, 42, 0.4); border: 1px solid rgba(71, 85, 105, 0.3); border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;">';
     
