@@ -12,9 +12,9 @@ chrome.runtime.onInstalled.addListener((details) => {
       preferredPort: 5173
     });
 
-    // Open welcome page
+    // Open welcome page - HighlightAssist GitHub repository
     chrome.tabs.create({
-      url: 'https://github.com/Skullcandyxxx/LawFirmProject/blob/main/browser-extension/README.md'
+      url: 'https://github.com/Skullcandyxxx/HighlightAssist'
     });
   } else if (details.reason === 'update') {
     console.log('[Highlight Assist] Extension updated to version', chrome.runtime.getManifest().version);
