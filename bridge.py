@@ -1,0 +1,280 @@
+"""
+HighlightAssist WebSocket Bridge
+Maintains persistent WebSocket connections and coordinates between extension and services
+"""
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import json
+import asyncio
+from datetime import datetime
+from typing import Dict, List
+import os
+
+app = FastAPI(title="HighlightAssist Bridge")
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Active WebSocket connections
+active_connections: List[WebSocket] = []
+
+# Connection metadata
+connection_info: Dict[WebSocket, dict] = {}
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.connection_metadata: Dict[WebSocket, dict] = {}
+
+    async def connect(self, websocket: WebSocket, client_info: dict = None):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        self.connection_metadata[websocket] = {
+            "connected_at": datetime.now().isoformat(),
+            "client_info": client_info or {},
+            "messages_sent": 0,
+            "messages_received": 0
+        }
+        print(f"✅ WebSocket connected. Total connections: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        if websocket in self.connection_metadata:
+            metadata = self.connection_metadata.pop(websocket)
+            print(f"👋 WebSocket disconnected. Messages: {metadata['messages_received']} in, {metadata['messages_sent']} out")
+        print(f"📊 Active connections: {len(self.active_connections)}")
+
+    async def send_personal_message(self, message: dict, websocket: WebSocket):
+        if websocket in self.connection_metadata:
+            self.connection_metadata[websocket]["messages_sent"] += 1
+        await websocket.send_json(message)
+
+    async def broadcast(self, message: dict):
+        """Send message to all connected clients"""
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+                if connection in self.connection_metadata:
+                    self.connection_metadata[connection]["messages_sent"] += 1
+            except Exception as e:
+                print(f"❌ Error broadcasting to connection: {e}")
+
+
+manager = ConnectionManager()
+
+
+@app.get("/")
+async def root():
+    return {
+        "service": "HighlightAssist WebSocket Bridge",
+        "status": "running",
+        "active_connections": len(manager.active_connections),
+        "endpoints": {
+            "websocket": "/ws",
+            "health": "/health",
+            "stats": "/stats"
+        }
+    }
+
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "active_connections": len(manager.active_connections),
+        "uptime": "running"
+    }
+
+
+@app.get("/stats")
+async def stats():
+    """Get statistics about active connections"""
+    connections = []
+    for ws, metadata in manager.connection_metadata.items():
+        connections.append({
+            "connected_at": metadata["connected_at"],
+            "messages_sent": metadata["messages_sent"],
+            "messages_received": metadata["messages_received"],
+            "client_info": metadata.get("client_info", {})
+        })
+    
+    return {
+        "total_connections": len(manager.active_connections),
+        "connections": connections
+    }
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Main WebSocket endpoint for browser extension"""
+    await manager.connect(websocket)
+    
+    try:
+        # Send welcome message
+        await manager.send_personal_message({
+            "type": "connection",
+            "status": "connected",
+            "message": "Connected to HighlightAssist Bridge",
+            "timestamp": datetime.now().isoformat()
+        }, websocket)
+        
+        while True:
+            # Receive message from extension
+            data = await websocket.receive_json()
+            
+            if websocket in manager.connection_metadata:
+                manager.connection_metadata[websocket]["messages_received"] += 1
+            
+            message_type = data.get("type", "unknown")
+            print(f"📨 Received message: {message_type}")
+            
+            # Log AI requests with full details for AI monitoring
+            if message_type == "ai_request":
+                print(f"🤖 AI Command: {data.get('command', 'No command')}")
+                print(f"📋 Element Context:")
+                context = data.get('context', {})
+                if context:
+                    print(f"   Tag: {context.get('tag', 'N/A')}")
+                    print(f"   Classes: {context.get('classes', 'N/A')}")
+                    print(f"   ID: {context.get('id', 'N/A')}")
+                    print(f"   Text: {context.get('text', 'N/A')[:100]}...")  # First 100 chars
+                    if context.get('attributes'):
+                        print(f"   Attributes: {context.get('attributes')}")
+                print(f"⏰ Timestamp: {data.get('timestamp', 'N/A')}")
+                print("-" * 60)
+            
+            # Process different message types
+            if message_type == "ping":
+                await manager.send_personal_message({
+                    "type": "pong",
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+            
+            elif message_type == "element_analysis":
+                # Element analysis request from extension
+                print(f"🔍 Element analysis: {data.get('selector', 'unknown')}")
+                
+                # Echo back for now (future: forward to AI service)
+                await manager.send_personal_message({
+                    "type": "analysis_received",
+                    "status": "ok",
+                    "message": "Analysis received, processing...",
+                    "requestId": data.get("requestId"),
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+                # Simulate AI processing (replace with actual AI integration)
+                await asyncio.sleep(0.5)
+                
+                # Send enhanced analysis back
+                await manager.send_personal_message({
+                    "type": "analysis_complete",
+                    "requestId": data.get("requestId"),
+                    "enhancedAnalysis": {
+                        "aiSuggestions": [
+                            "Consider using semantic HTML5 elements",
+                            "Add ARIA labels for better screen reader support"
+                        ],
+                        "codeExamples": [
+                            "<!-- Use <nav> instead of <div class='navigation'> -->"
+                        ]
+                    },
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+            
+            elif message_type == "get_instances":
+                # Request for available dev server instances
+                instances = []
+                ports_file = os.path.join(os.path.dirname(__file__), '.highlight-ports.json')
+                
+                if os.path.exists(ports_file):
+                    with open(ports_file, 'r') as f:
+                        config = json.load(f)
+                        instances = config.get('instances', [])
+                
+                await manager.send_personal_message({
+                    "type": "instances",
+                    "instances": instances,
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+            
+            elif message_type == "broadcast":
+                # Broadcast to all connected clients
+                await manager.broadcast({
+                    "type": "broadcast_message",
+                    "data": data.get("data"),
+                    "from": "bridge",
+                    "timestamp": datetime.now().isoformat()
+                })
+            
+            else:
+                # Unknown message type
+                await manager.send_personal_message({
+                    "type": "error",
+                    "message": f"Unknown message type: {message_type}",
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        print("🔌 Client disconnected normally")
+    
+    except Exception as e:
+        print(f"❌ WebSocket error: {e}")
+        manager.disconnect(websocket)
+
+
+@app.post("/shutdown")
+async def shutdown(token: str = None):
+    """Graceful shutdown endpoint"""
+    expected_token = os.getenv("BRIDGE_TOKEN", "dev-token-change-me")
+    
+    if token != expected_token:
+        return {"status": "error", "message": "Invalid token"}
+    
+    print("🛑 Shutdown requested, closing all connections...")
+    
+    # Close all WebSocket connections
+    for connection in manager.active_connections.copy():
+        try:
+            await manager.send_personal_message({
+                "type": "server_shutdown",
+                "message": "Server is shutting down",
+                "timestamp": datetime.now().isoformat()
+            }, connection)
+            await connection.close()
+        except Exception as e:
+            print(f"Error closing connection: {e}")
+    
+    return {"status": "ok", "message": "Shutdown initiated"}
+
+
+if __name__ == "__main__":
+    # Get configuration from environment
+    host = os.getenv("BRIDGE_HOST", "127.0.0.1")
+    port = int(os.getenv("BRIDGE_PORT", "5055"))
+    
+    print(f"""
+╔═══════════════════════════════════════════════════════════╗
+║        HighlightAssist WebSocket Bridge v1.0              ║
+╚═══════════════════════════════════════════════════════════╝
+    
+🌐 Host: {host}
+📡 Port: {port}
+🔌 WebSocket: ws://{host}:{port}/ws
+❤️  Health: http://{host}:{port}/health
+📊 Stats: http://{host}:{port}/stats
+
+Waiting for connections...
+""")
+    
+    uvicorn.run(app, host=host, port=port)
