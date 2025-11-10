@@ -1467,19 +1467,23 @@
 // Enhanced setup wizard with animation
 function showSetupWizard() {
   var os = detectOS(); // 'windows', 'mac', or 'linux'
-  var installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/';
+  var installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/installers/';
   var installerFile = '';
+  var installerName = '';
   var icon = '';
   
   if (os === 'windows') {
-    installerFile = 'install-windows.bat';
-    icon = '';
+    installerFile = 'HighlightAssist-Setup-Windows.bat';
+    installerName = 'Windows Installer (.bat)';
+    icon = '🪟';
   } else if (os === 'mac') {
-    installerFile = 'install-macos.sh';
-    icon = '';
+    installerFile = 'HighlightAssist-Setup-macOS.sh';
+    installerName = 'macOS Installer (.sh)';
+    icon = '🍎';
   } else {
-    installerFile = 'install-linux.sh';
-    icon = '';
+    installerFile = 'HighlightAssist-Setup-Linux.sh';
+    installerName = 'Linux Installer (.sh)';
+    icon = '🐧';
   }
   
   var html = '<div style="text-align: center; padding: 20px; animation: fadeIn 0.5s;">';
@@ -1516,7 +1520,7 @@ function showSetupWizard() {
   
   // Download button (uses data attribute for installer URL)
   html += '<button id="ha-download-installer" data-installer-url="' + installerUrl + installerFile + '" data-installer-name="' + installerFile + '" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;">';
-  html += ' Download Installer';
+  html += '📥 Download ' + installerName;
   html += '</button>';
   
   // Manual link
