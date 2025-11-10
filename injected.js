@@ -1,4 +1,4 @@
-// Injected script - runs in page context with access to React/Vite modules
+﻿// Injected script - runs in page context with access to React/Vite modules
 (function() {
   'use strict';
 
@@ -76,7 +76,7 @@
     errorDiv.innerHTML = `
       <strong>⚠️ Highlight Assist</strong><br>
       ${message}
-      <button onclick="this.parentElement.remove()" style="
+      <button id="ha-error-close" style="
         margin-top: 8px;
         padding: 4px 12px;
         background: #dc2626;
@@ -87,7 +87,7 @@
         font-size: 12px;
       ">Close</button>
     `;
-    document.body.appendChild(errorDiv);
+    document.body.appendChild(errorDiv);`n    document.getElementById('ha-error-close').addEventListener('click', function() { errorDiv.remove(); });
 
     // Auto-remove after 10 seconds
     setTimeout(() => errorDiv.remove(), 10000);
