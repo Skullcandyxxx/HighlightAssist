@@ -1,45 +1,213 @@
 // Content script - runs on localhost pages
 console.log('[Highlight Assist] Content script loaded');
 
+let overlayLoaded = false;
+let pendingResponse = null;
+
+// Wait for logger to be available
+setTimeout(() => {
+  if (typeof logger !== 'undefined') {
+    logger.info('Content script loaded', { url: window.location.href }, 'content');
+  }
+}, 100);
+
+// Listen for responses from overlay-gui.js
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  
+  if (event.data.type === 'HIGHLIGHT_ASSIST_RESPONSE') {
+    // Handle response from overlay-gui
+    if (pendingResponse) {
+      pendingResponse(event.data);
+      pendingResponse = null;
+    }
+  }
+});
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('[Highlight Assist] Message received:', request);
-
-  if (request.action === 'enable') {
-    enableHighlightTool();
-  } else if (request.action === 'disable') {
-    disableHighlightTool();
+  
+  if (typeof logger !== 'undefined') {
+    logger.debug('Message received from popup', { action: request.action }, 'content');
   }
 
-  sendResponse({ success: true });
+  try {
+    if (request.action === 'toggleInspecting') {
+      // Load overlay if not loaded
+      if (!overlayLoaded) {
+        loadOverlayGui();
+        // Wait for overlay to load before sending message
+        setTimeout(() => {
+          window.postMessage({ 
+            type: 'HIGHLIGHT_ASSIST', 
+            action: 'toggleInspecting' 
+          }, '*');
+        }, 500);
+      } else {
+        // Forward to overlay-gui.js
+        window.postMessage({ 
+          type: 'HIGHLIGHT_ASSIST', 
+          action: 'toggleInspecting' 
+        }, '*');
+      }
+      
+      // Wait for overlay to respond with actual state
+      pendingResponse = (data) => {
+        sendResponse({ success: true, isInspecting: data.isInspecting });
+        if (typeof logger !== 'undefined') {
+          logger.success('Inspection toggled', { isInspecting: data.isInspecting }, 'content');
+        }
+      };
+      
+      // Timeout fallback
+      setTimeout(() => {
+        if (pendingResponse) {
+          sendResponse({ success: true, isInspecting: false });
+          pendingResponse = null;
+        }
+      }, 1000);
+      
+      return true; // Keep channel open for async response
+    } 
+    
+    if (request.action === 'showGui') {
+      // Load overlay if not loaded
+      if (!overlayLoaded) {
+        loadOverlayGui();
+        // Wait for overlay to load before showing GUI
+        setTimeout(() => {
+          window.postMessage({ 
+            type: 'HIGHLIGHT_ASSIST', 
+            action: 'showGui' 
+          }, '*');
+        }, 500);
+      } else {
+        // Show the GUI panel
+        window.postMessage({ 
+          type: 'HIGHLIGHT_ASSIST', 
+          action: 'showGui' 
+        }, '*');
+      }
+      
+      sendResponse({ success: true });
+      if (typeof logger !== 'undefined') {
+        logger.success('GUI panel opened', {}, 'content');
+      }
+    }
+
+    if (request.action === 'getState') {
+      // Forward to overlay and wait for response
+      window.postMessage({ 
+        type: 'HIGHLIGHT_ASSIST', 
+        action: 'getState' 
+      }, '*');
+      
+      sendResponse({ success: true, isInspecting: true });
+    }
+
+    if (request.action === 'exportLogs') {
+      if (typeof logger !== 'undefined') {
+        logger.downloadLogs(request.format || 'json');
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'Logger not available' });
+      }
+    }
+
+    if (request.action === 'getLogs') {
+      if (typeof logger !== 'undefined') {
+        const logs = logger.getLogs(request.filter || {});
+        sendResponse({ success: true, logs });
+      } else {
+        sendResponse({ success: false, error: 'Logger not available' });
+      }
+    }
+    
+  } catch (error) {
+    console.error('[Highlight Assist] Error handling message:', error);
+    if (typeof logger !== 'undefined') {
+      logger.error('Message handling failed', { 
+        error: error.message, 
+        stack: error.stack,
+        action: request.action 
+      }, 'content');
+    }
+    sendResponse({ success: false, error: error.message });
+  }
 });
 
 // Check if tool should be active on page load
 chrome.storage.local.get(['highlightAssistActive'], (result) => {
-  if (result.highlightAssistActive) {
-    enableHighlightTool();
+  // REMOVED AUTO-LOAD: Extension loads silently, user must click "Open GUI Panel" to show it
+  // This makes the extension non-intrusive
+  if (result.highlightAssistActive === true) {
+    // Only auto-load if explicitly enabled (not by default)
+    loadOverlayGui();
   }
 });
 
-function enableHighlightTool() {
-  console.log('[Highlight Assist] Enabling tool');
+function loadOverlayGui() {
+  if (overlayLoaded) {
+    console.log('[Highlight Assist] Overlay already loaded');
+    if (typeof logger !== 'undefined') {
+      logger.debug('Overlay already loaded', {}, 'content');
+    }
+    return;
+  }
 
-  // Inject the highlight assist script
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('injected.js');
-  script.onload = function() {
-    this.remove();
-    console.log('[Highlight Assist] Injected script loaded');
-  };
-  (document.head || document.documentElement).appendChild(script);
+  console.log('[Highlight Assist] Loading overlay GUI');
+  if (typeof logger !== 'undefined') {
+    logger.info('Loading overlay GUI', {}, 'content');
+  }
+
+  try {
+    // Inject the overlay-gui.js script
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('overlay-gui.js');
+    script.onload = function() {
+      console.log('[Highlight Assist] Overlay GUI loaded');
+      if (typeof logger !== 'undefined') {
+        logger.success('Overlay GUI loaded successfully', {}, 'content');
+      }
+      overlayLoaded = true;
+      this.remove();
+    };
+    script.onerror = function(error) {
+      console.error('[Highlight Assist] Failed to load overlay GUI', error);
+      if (typeof logger !== 'undefined') {
+        logger.error('Failed to load overlay GUI', { error }, 'content');
+      }
+      overlayLoaded = false;
+    };
+    
+    (document.head || document.documentElement).appendChild(script);
+  } catch (error) {
+    console.error('[Highlight Assist] Exception loading overlay:', error);
+    if (typeof logger !== 'undefined') {
+      logger.error('Exception loading overlay', { 
+        error: error.message,
+        stack: error.stack 
+      }, 'content');
+    }
+  }
 }
 
-function disableHighlightTool() {
-  console.log('[Highlight Assist] Disabling tool');
-  
-  // Remove all highlight assist UI elements
-  document.querySelectorAll('[data-ha-ui]').forEach(el => el.remove());
-  
-  // Dispatch event to clean up
-  window.dispatchEvent(new CustomEvent('highlight-assist-disable'));
-}
+// REMOVED: Auto-load on localhost - extension should be non-intrusive
+// User must click "Open GUI Panel" button to activate
+// window.addEventListener('load', () => {
+//   const isLocalhost = window.location.hostname === 'localhost' || 
+//                      window.location.hostname === '127.0.0.1' ||
+//                      window.location.hostname.includes('.local');
+//   
+//   if (isLocalhost) {
+//     if (typeof logger !== 'undefined') {
+//       logger.info('Localhost detected, auto-loading overlay', { 
+//         hostname: window.location.hostname 
+//       }, 'content');
+//     }
+//     loadOverlayGui();
+//   }
+// });
+
+

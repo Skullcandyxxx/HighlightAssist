@@ -4,8 +4,8 @@
   "short_name": "Highlight Assist",
   "version": "1.0.0",
   "description": "Professional UI debugging tool for developers. Inspect elements visually, send structured data to AI assistants, and debug faster without screenshots.",
-  "author": "Skullcandyxxx <glfalliance@gmail.com>",
-  "homepage_url": "https://github.com/Skullcandyxxx/HighlightAssist",
+  "author": "LawHub Solutions",
+  "homepage_url": "https://github.com/Skullcandyxxx/LawFirmProject",
   "permissions": [
     "activeTab",
     "scripting",
@@ -38,13 +38,13 @@
   "content_scripts": [
     {
       "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"],
-      "js": ["content.js"],
+      "js": ["logger.js", "error-handler.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["injected.js", "highlight-tool.js"],
+      "resources": ["injected.js", "overlay-gui.js", "logger.js", "error-handler.js"],
       "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"]
     }
   ],

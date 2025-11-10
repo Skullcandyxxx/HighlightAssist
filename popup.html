@@ -58,9 +58,14 @@
             font-size: 14px;
             font-weight: 500;
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        .status-card > div:first-child {
+            display: flex;
             align-items: center;
             gap: 12px;
-            transition: all 0.3s ease;
         }
         .status-icon {
             font-size: 20px;
@@ -223,6 +228,12 @@
             <button id="toggleBtn" class="btn-primary">
                 <span>🚀</span> Enable Highlight Tool
             </button>
+            <button id="openGuiBtn" class="btn-secondary">
+                <span>🎨</span> Open GUI Panel
+            </button>
+            <button id="exportLogsBtn" class="btn-secondary">
+                <span>📥</span> Export Logs
+            </button>
             <button id="settingsBtn" class="btn-secondary">
                 <span>⚙️</span> Settings & Preferences
             </button>
@@ -246,7 +257,7 @@
     </div>
 
     <div class="footer">
-        Made with ❤️ by <a href="https://github.com/Skullcandyxxx" target="_blank">Skullcandyxxx</a>
+        Made with ❤️ by <a href="https://github.com/Skullcandyxxx" target="_blank">LawHub</a>
     </div>
 
     <script src="popup.js"></script>
