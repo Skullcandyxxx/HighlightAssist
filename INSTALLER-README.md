@@ -3,10 +3,10 @@
 ## Quick Start
 
 ### Using GitHub Actions (Recommended)
-Push a tag to automatically build and release:
+Push a tag to automatically build and release (use your next version tag):
 ```bash
-git tag -a v3.4.0 -m "Release v3.4.0"
-git push origin v3.4.0
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
 The GitHub Actions workflow will automatically:
@@ -31,7 +31,7 @@ choco install innosetup -y
 .\build-windows-installer.ps1
 ```
 
-The installer will be created in `installers/HighlightAssist-Setup-v3.4.0.exe`
+The installer will be created in `installers/HighlightAssist-Setup-vX.Y.Z.exe` (version number is substituted by the release tag)
 
 ## Installer Features
 
@@ -50,8 +50,8 @@ The installer will be created in `installers/HighlightAssist-Setup-v3.4.0.exe`
 
 ✅ **Silent Installation Support**
 ```cmd
-HighlightAssist-Setup-v3.4.0.exe /SILENT
-HighlightAssist-Setup-v3.4.0.exe /VERYSILENT /TASKS="autostart"
+HighlightAssist-Setup-vX.Y.Z.exe /SILENT
+HighlightAssist-Setup-vX.Y.Z.exe /VERYSILENT /TASKS="autostart"
 ```
 
 ## Customization
