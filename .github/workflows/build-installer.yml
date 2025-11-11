@@ -28,6 +28,15 @@ jobs:
     - name: Build installer
       run: |
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
+        # Find the generated .exe (assuming output in project root or Output/)
+        $exe = Get-ChildItem -Path . -Filter "HighlightAssist-Setup-v*.exe" -Recurse | Select-Object -First 1
+        if ($exe) {
+          New-Item -ItemType Directory -Force -Path installers | Out-Null
+          Copy-Item $exe.FullName installers/ -Force
+        } else {
+          Write-Host "No installer EXE found!" -ForegroundColor Red
+          exit 1
+        }
     
     - name: Upload installer artifact
       uses: actions/upload-artifact@v3
