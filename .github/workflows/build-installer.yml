@@ -37,12 +37,26 @@ jobs:
           Write-Host "No installer EXE found!" -ForegroundColor Red
           exit 1
         }
+
+    - name: Build cross-platform installers (scripts)
+      run: |
+        Write-Host "Running build-installers.ps1 to generate bat/sh installers..."
+        pwsh -NoProfile -ExecutionPolicy Bypass -Command "./build-installers.ps1"
+
+    - name: Debug: list installers folder
+      run: |
+        Write-Host "Contents of installers/"
+        Get-ChildItem -Path installers -Recurse | Format-Table -AutoSize
     
     - name: Upload installer artifact
       uses: actions/upload-artifact@v3
       with:
         name: HighlightAssist-Installer
-        path: installers/HighlightAssist-Setup-v*.exe
+        path: |
+          installers/HighlightAssist-Setup-v*.exe
+          installers/HighlightAssist-Setup-Windows.bat
+          installers/HighlightAssist-Setup-Linux.sh
+          installers/HighlightAssist-Setup-macOS.sh
     
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
