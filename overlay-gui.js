@@ -3019,6 +3019,97 @@ function detectOS() {
         }
       });
     });
+
+    // Enhance installer download button: query GitHub Releases API to find the best asset
+    (function enhanceInstallerButton() {
+      try {
+        var btn = document.getElementById('ha-download-installer');
+        if (!btn) return;
+
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '🔎 Checking releases...';
+
+        // Determine platform preference from data-installer-name if present
+        var dataName = btn.getAttribute('data-installer-name') || '';
+        var platform = 'linux';
+        if (dataName.toLowerCase().includes('windows')) platform = 'windows';
+        else if (dataName.toLowerCase().includes('mac')) platform = 'mac';
+
+        // Fetch latest release assets from GitHub API (public repo)
+        fetch('https://api.github.com/repos/Skullcandyxxx/HighlightAssist/releases/latest')
+          .then(function(resp) { if (!resp.ok) throw new Error('Release fetch failed'); return resp.json(); })
+          .then(function(release) {
+            var assets = release.assets || [];
+
+            // Helper to find asset by regex
+            function findAsset(regex) {
+              for (var i = 0; i < assets.length; i++) {
+                if (regex.test(assets[i].name)) return assets[i];
+              }
+              return null;
+            }
+
+            var chosen = null;
+            if (platform === 'windows') {
+              // Prefer professional .exe (pattern: HighlightAssist-Setup-v*.exe)
+              chosen = findAsset(/^HighlightAssist-Setup-.*\.exe$/i) || findAsset(/^HighlightAssist-Setup-.*\.msi$/i);
+              if (!chosen) chosen = findAsset(/HighlightAssist-Setup-Windows\.bat$/i);
+            } else if (platform === 'mac') {
+              chosen = findAsset(/HighlightAssist-Setup-macOS\.sh$/i) || findAsset(/HighlightAssist-Setup-.*\.dmg$/i);
+            } else {
+              chosen = findAsset(/HighlightAssist-Setup-Linux\.sh$/i) || findAsset(/HighlightAssist-Setup-.*\.tar\.gz$/i);
+            }
+
+            if (chosen) {
+              // Replace button with anchor pointing to browser_download_url
+              var a = document.createElement('a');
+              a.href = chosen.browser_download_url;
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.className = 'ha-download-btn';
+              a.style.display = 'inline-block';
+              a.textContent = '📥 Download ' + (chosen.name || dataName);
+              btn.parentNode.replaceChild(a, btn);
+            } else {
+              // No matching asset found - fallback to data-installer-url (script)
+              var fallback = btn.getAttribute('data-installer-url');
+              if (fallback) {
+                var a2 = document.createElement('a');
+                a2.href = fallback;
+                a2.target = '_blank';
+                a2.rel = 'noopener noreferrer';
+                a2.className = 'ha-download-btn';
+                a2.style.display = 'inline-block';
+                a2.textContent = '📥 Download ' + (dataName || 'Installer');
+                btn.parentNode.replaceChild(a2, btn);
+              } else {
+                btn.textContent = originalText;
+                btn.disabled = false;
+              }
+            }
+          })
+          .catch(function(err) {
+            // On error, fall back to provided URL
+            var fallback = btn.getAttribute('data-installer-url');
+            if (fallback) {
+              var a3 = document.createElement('a');
+              a3.href = fallback;
+              a3.target = '_blank';
+              a3.rel = 'noopener noreferrer';
+              a3.className = 'ha-download-btn';
+              a3.style.display = 'inline-block';
+              a3.textContent = '📥 Download ' + (btn.getAttribute('data-installer-name') || 'Installer');
+              btn.parentNode.replaceChild(a3, btn);
+            } else {
+              btn.textContent = originalText;
+              btn.disabled = false;
+            }
+          });
+      } catch (e) {
+        // silent
+      }
+    })();
   }
 
   function setupConsoleTabListeners() {
