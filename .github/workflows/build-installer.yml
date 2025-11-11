@@ -43,7 +43,7 @@ jobs:
         Write-Host "Running build-installers.ps1 to generate bat/sh installers..."
         pwsh -NoProfile -ExecutionPolicy Bypass -Command "./build-installers.ps1"
 
-    - name: Debug: list installers folder
+    - name: "Debug - list installers folder"
       run: |
         Write-Host "Contents of installers/"
         Get-ChildItem -Path installers -Recurse | Format-Table -AutoSize
@@ -52,11 +52,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: HighlightAssist-Installer
-        path: |
-          installers/HighlightAssist-Setup-v*.exe
-          installers/HighlightAssist-Setup-Windows.bat
-          installers/HighlightAssist-Setup-Linux.sh
-          installers/HighlightAssist-Setup-macOS.sh
+        path: installers/**
     
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
