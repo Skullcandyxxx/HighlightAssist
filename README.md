@@ -6,7 +6,7 @@ Browser extension for element inspection with AI assistance. Works on **Windows,
 
 ###  Windows
 ```cmd
-install-windows.bat
+HighlightAssist-Setup-Windows.bat
 ```
 Double-click the file. It will:
 -  Install Python dependencies
@@ -15,15 +15,15 @@ Double-click the file. It will:
 
 ###  Linux (Ubuntu/Debian)
 ```bash
-chmod +x install-linux.sh
-./install-linux.sh
+chmod +x HighlightAssist-Setup-Linux.sh
+./HighlightAssist-Setup-Linux.sh
 ```
 Installs as systemd user service (auto-starts on boot)
 
 ###  macOS
 ```bash
-chmod +x install-macos.sh
-./install-macos.sh
+chmod +x HighlightAssist-Setup-macOS.sh
+./HighlightAssist-Setup-macOS.sh
 ```
 Installs as LaunchAgent (auto-starts on login)
 

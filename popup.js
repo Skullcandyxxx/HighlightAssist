@@ -48,6 +48,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check if on localhost
   const isLocalhost = isLocalDevelopment(tab.url);
 
+  // Inject popup CSS for hover effects (CSP-safe replacement for inline handlers)
+  (function injectPopupStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+      .localhost-link { transition: all 0.2s; }
+      .localhost-link:hover { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.5); }
+      .localhost-link .title { font-size: 11px; font-weight: 600; color: #60a5fa; margin-bottom: 2px; }
+      .localhost-link .short { font-size: 9px; color: #94a3b8; }
+    `;
+    document.head.appendChild(style);
+  })();
+
   if (!isLocalhost) {
     // Find all localhost tabs
     const allTabs = await chrome.tabs.query({});
@@ -71,10 +83,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           border: 1px solid rgba(59, 130, 246, 0.3);
           border-radius: 6px;
           cursor: pointer;
-          transition: all 0.2s;
-        " onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.borderColor='rgba(59, 130, 246, 0.5)';" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.borderColor='rgba(59, 130, 246, 0.3)';">
-          <div style="font-size: 11px; font-weight: 600; color: #60a5fa; margin-bottom: 2px;">🌐 ${tabTitle}</div>
-          <div style="font-size: 9px; color: #94a3b8;">${shortUrl}</div>
+        ">
+          <div class="title">🌐 ${tabTitle}</div>
+          <div class="short">${shortUrl}</div>
         </div>`;
       });
       

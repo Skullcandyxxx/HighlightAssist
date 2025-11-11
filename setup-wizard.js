@@ -7,13 +7,16 @@ function showSetupWizard() {
   var icon = '';
   
   if (os === 'windows') {
-    installerFile = 'install-windows.bat';
+    // CI and local builds produce: HighlightAssist-Setup-Windows.bat
+    installerFile = 'HighlightAssist-Setup-Windows.bat';
     icon = '';
   } else if (os === 'mac') {
-    installerFile = 'install-macos.sh';
+    // macOS installer name
+    installerFile = 'HighlightAssist-Setup-macOS.sh';
     icon = '';
   } else {
-    installerFile = 'install-linux.sh';
+    // Linux installer name
+    installerFile = 'HighlightAssist-Setup-Linux.sh';
     icon = '';
   }
   
@@ -49,14 +52,14 @@ function showSetupWizard() {
   
   html += '</div>';
   
-  // Download button
-  html += '<a href="' + installerUrl + installerFile + '" download style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">';
+  // Download button (no inline handlers — CSP friendly). Hover handled via CSS below.
+  html += '<a class="ha-download-btn" href="' + installerUrl + installerFile + '" download>'; 
   html += ' Download Installer';
   html += '</a>';
   
-  // Manual link
+  // Manual link to Releases (users can pick other installer assets there)
   html += '<div style="margin-top: 16px;">';
-  html += '<a href="https://github.com/Skullcandyxxx/HighlightAssist#readme" target="_blank" style="color: #60a5fa; font-size: 10px; text-decoration: underline;">View full installation guide </a>';
+  html += '<a href="https://github.com/Skullcandyxxx/HighlightAssist/releases/latest" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; font-size: 10px; text-decoration: underline;">View full installation guide & downloads</a>';
   html += '</div>';
   
   html += '</div>';
@@ -65,6 +68,10 @@ function showSetupWizard() {
   html += '<style>';
   html += '@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }';
   html += '@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }';
+  // Button class to replace inline onmouseover/onmouseout handlers (CSP-safe)
+  html += '.ha-download-btn { display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.15s ease, box-shadow 0.15s ease; cursor: pointer; }';
+  html += '.ha-download-btn:hover, .ha-download-btn:focus { transform: scale(1.05); box-shadow: 0 8px 20px rgba(16,185,129,0.35); }';
+  html += '.ha-download-btn:active { transform: scale(0.99); }';
   html += '</style>';
   
   return html;

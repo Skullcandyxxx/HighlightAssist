@@ -1473,18 +1473,18 @@ function showSetupWizard() {
   var icon = '';
   
   if (os === 'windows') {
-    // Point to GitHub Releases for .exe installer (once built by GitHub Actions)
+    // Prefer Releases page/downloads. Script installer is always present; .exe will be attached by CI when available.
     installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
-    installerFile = 'HighlightAssist-Setup-v3.4.0.exe';
-    installerName = 'Windows Installer (.exe)';
+    installerFile = 'HighlightAssist-Setup-Windows.bat';
+    installerName = 'Windows Installer (script)';
     icon = '🪟';
   } else if (os === 'mac') {
-    installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/installers/';
+    installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
     installerFile = 'HighlightAssist-Setup-macOS.sh';
     installerName = 'macOS Installer (.sh)';
     icon = '🍎';
   } else {
-    installerUrl = 'https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/installers/';
+    installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
     installerFile = 'HighlightAssist-Setup-Linux.sh';
     installerName = 'Linux Installer (.sh)';
     icon = '🐧';
