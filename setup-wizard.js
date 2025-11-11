@@ -52,10 +52,10 @@ function showSetupWizard() {
   
   html += '</div>';
   
-  // Download button (no inline handlers — CSP friendly). Hover handled via CSS below.
-  html += '<a class="ha-download-btn" href="' + installerUrl + installerFile + '" download>'; 
-  html += ' Download Installer';
-  html += '</a>';
+  // Download button uses data attributes; runtime code will replace with a direct release asset link when available
+  html += '<button id="ha-download-installer" data-installer-url="' + installerUrl + installerFile + '" data-installer-name="' + installerFile + '" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;">';
+  html += '📥 Download Installer';
+  html += '</button>';
   
   // Manual link to Releases (users can pick other installer assets there)
   html += '<div style="margin-top: 16px;">';
