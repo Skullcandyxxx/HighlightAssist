@@ -109,7 +109,7 @@ end;
 procedure RegisterNativeMessagingHosts;
 var
   TemplatePath, HostPath, ChromeManifest, EdgeManifest: string;
-  TemplateContent: string;
+  TemplateContent: AnsiString;
 begin
   TemplatePath := ExpandConstant('{app}\native_host\manifests\com.highlightassist.bridge.json.tpl');
   if not LoadStringFromFile(TemplatePath, TemplateContent) then
