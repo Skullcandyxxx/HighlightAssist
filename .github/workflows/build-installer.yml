@@ -55,9 +55,17 @@ jobs:
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
         # Find the generated .exe (assuming output in project root or Output/)
         $exe = Get-ChildItem -Path . -Filter "HighlightAssist-Setup-v*.exe" -Recurse | Select-Object -First 1
+        $installersDir = Join-Path (Get-Location) 'installers'
+        if (-not (Test-Path $installersDir)) {
+          New-Item -ItemType Directory -Force -Path $installersDir | Out-Null
+        }
         if ($exe) {
-          New-Item -ItemType Directory -Force -Path installers | Out-Null
-          Copy-Item $exe.FullName installers/ -Force
+          $installersFullPath = (Get-Item $installersDir).FullName
+          if ($exe.Directory.FullName -eq $installersFullPath) {
+            Write-Host "Installer already located in installers/, skipping copy."
+          } else {
+            Copy-Item $exe.FullName $installersDir -Force
+          }
         } else {
           Write-Host "No installer EXE found - continuing and attaching available script installers." -ForegroundColor Yellow
           # Do not exit the workflow; allow scripts to be generated and release to be created.
