@@ -43,7 +43,7 @@ jobs:
           pyinstaller --noconfirm --clean pyinstaller.spec
 
       - name: Archive HighlightAssist Service Manager
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: HighlightAssist-Service-Manager-${{ matrix.os }}
           path: dist/HighlightAssist-Service-Manager
