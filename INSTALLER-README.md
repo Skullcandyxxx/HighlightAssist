@@ -130,3 +130,45 @@ If the installer cannot register the native messaging manifest automatically (or
 These scripts use the manifest template `native_host/manifests/com.highlightassist.bridge.json.tpl` and will write manifest files into the per-user NativeMessagingHosts directories for Chrome/Edge. For Firefox, follow the Firefox native messaging docs to install manifests per profile.
 
 Note: the extension ID is required for the manifest's `allowed_origins` entry. You can find it in the extension's `manifest.json` or in `installer-config.iss` where `NativeHostExtensionId` is defined.
+
+## Platform runtime requirements & developer checklist
+
+These notes help developers build and test the native host and service manager locally on each OS.
+
+Windows
+- Python 3.8+ (Add to PATH)
+- Inno Setup (for building the .exe installer) — `choco install innosetup` on CI or dev machines
+- Optional (for notifications): `win10toast` Python package (or rely on `plyer`)
+
+Linux
+- Python 3.8+
+- libnotify / notify-send available (typically provided by libnotify-bin or desktop environment)
+- Optional: `notify2` Python package or `plyer`
+
+macOS
+- Python 3.8+
+- Optional: `terminal-notifier` (via `brew install terminal-notifier`) or `pync` Python package
+
+Developer checklist (quick)
+1. Install Python and dependencies:
+	```powershell
+	python -m pip install -r requirements.txt
+	python -m pip install pyinstaller
+	```
+2. Build native host (cross-platform PyInstaller bundling of optional tray/notify libs):
+	```bash
+	# Windows (PowerShell):
+	pyinstaller native_host\bridge_host.py --onefile --name highlightassist-native-host --distpath native_host\dist --workpath native_host\build --clean --hidden-import=pystray --hidden-import=PIL --hidden-import=plyer --add-data "assets\\icon-128.png;assets"
+
+	# Linux/macOS (bash):
+	pyinstaller native_host/bridge_host.py --onefile --name highlightassist-native-host --distpath native_host/dist --workpath native_host/build --clean --hidden-import=pystray --hidden-import=PIL --hidden-import=plyer --add-data "assets/icon-128.png:assets"
+	```
+3. Register native messaging manifest (per-browser) using the helper scripts in `native_host/helpers/` or via installer.
+4. Run the service manager manually:
+	```bash
+	# From repo root
+	python service-manager.py
+	```
+5. Open browser and use the extension Projects UI to Start a project. Verify the native host `native_host/native_host_workspaces.json` contains the launched entry. Use Stop to terminate.
+
+If you encounter missing notification libraries, the service will still work — notifications/tray icons are optional fallbacks and the manager will print status to its console/logs.

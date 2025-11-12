@@ -20,11 +20,35 @@ try:
 except Exception:
     HAS_TRAY = False
 
+# Notification backends (platform-dependent)
+HAS_PLYER = False
+HAS_WIN10TOAST = False
+HAS_NOTIFY2 = False
+HAS_PYNC = False
 try:
     from plyer import notification as plyer_notification
-    HAS_NOTIFY = True
+    HAS_PLYER = True
 except Exception:
-    HAS_NOTIFY = False
+    HAS_PLYER = False
+
+if sys.platform.startswith('win'):
+    try:
+        from win10toast import ToastNotifier
+        HAS_WIN10TOAST = True
+    except Exception:
+        HAS_WIN10TOAST = False
+elif sys.platform.startswith('linux'):
+    try:
+        import notify2
+        HAS_NOTIFY2 = True
+    except Exception:
+        HAS_NOTIFY2 = False
+elif sys.platform.startswith('darwin'):
+    try:
+        import pync
+        HAS_PYNC = True
+    except Exception:
+        HAS_PYNC = False
 
 SERVICE_PORT = 5054  # Control port (bridge runs on 5055)
 BRIDGE_SCRIPT = Path(__file__).parent / "bridge.py"
@@ -53,11 +77,14 @@ class ServiceManager:
         
         try:
             # Start bridge process
+            creationflags = 0
+            popen_kwargs = dict(cwd=Path(__file__).parent)
+            if sys.platform.startswith('win') and hasattr(subprocess, 'CREATE_NEW_CONSOLE'):
+                popen_kwargs['creationflags'] = subprocess.CREATE_NEW_CONSOLE
+
             self.bridge_process = subprocess.Popen(
-                [sys.executable, "-m", "uvicorn", "bridge:app", 
-                 "--host=127.0.0.1", "--port=5055"],
-                cwd=Path(__file__).parent,
-                creationflags=subprocess.CREATE_NEW_CONSOLE
+                [sys.executable, "-m", "uvicorn", "bridge:app", "--host=127.0.0.1", "--port=5055"],
+                **popen_kwargs
             )
             
             # Wait for bridge to start
@@ -107,15 +134,73 @@ class ServiceManager:
             return None
 
     def _notify(self, title: str, message: str) -> None:
-        """Show a desktop notification using plyer (fallback to console)."""
+        """Show a desktop notification using the best-available backend for the platform.
+
+        Fallback order:
+        - Windows: win10toast -> plyer -> print
+        - macOS: pync -> plyer -> print
+        - Linux: notify2 -> plyer -> notify-send subprocess -> print
+        """
         try:
-            if HAS_NOTIFY:
-                plyer_notification.notify(title=title, message=message, app_name='HighlightAssist')
-            else:
-                # On Windows try win32api balloon (not required) - fallback to print
-                print(f"[NOTIFY] {title}: {message}")
-        except Exception:
+            if sys.platform.startswith('win'):
+                if HAS_WIN10TOAST:
+                    try:
+                        toaster = ToastNotifier()
+                        toaster.show_toast(title, message, threaded=True, icon_path=None, duration=4)
+                        return
+                    except Exception:
+                        pass
+                if HAS_PLYER:
+                    try:
+                        plyer_notification.notify(title=title, message=message, app_name='HighlightAssist')
+                        return
+                    except Exception:
+                        pass
+
+            elif sys.platform.startswith('darwin'):
+                if HAS_PYNC:
+                    try:
+                        pync.notify(message, title=title)
+                        return
+                    except Exception:
+                        pass
+                if HAS_PLYER:
+                    try:
+                        plyer_notification.notify(title=title, message=message, app_name='HighlightAssist')
+                        return
+                    except Exception:
+                        pass
+
+            else:  # linux & others
+                if HAS_NOTIFY2:
+                    try:
+                        notify2.init('HighlightAssist')
+                        n = notify2.Notification(title, message)
+                        n.show()
+                        return
+                    except Exception:
+                        pass
+                if HAS_PLYER:
+                    try:
+                        plyer_notification.notify(title=title, message=message, app_name='HighlightAssist')
+                        return
+                    except Exception:
+                        pass
+                # try notify-send as a last resort
+                try:
+                    subprocess.Popen(['notify-send', title, message])
+                    return
+                except Exception:
+                    pass
+
+            # Final fallback to console
             print(f"[NOTIFY] {title}: {message}")
+        except Exception:
+            # Never raise from notifications
+            try:
+                print(f"[NOTIFY] {title}: {message}")
+            except Exception:
+                pass
 
     def _create_tray(self):
         """Create and run a system tray icon with a minimal menu if pystray is available."""
