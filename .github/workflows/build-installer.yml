@@ -98,8 +98,28 @@ jobs:
           files: |
             release_artifacts/**
           body: |
-            ## HighlightAssist v${{ github.ref_name }}
+            ## HighlightAssist ${{ github.ref_name }} - Visual UI Debugger
             
-            Cross-platform native host builds and installers are attached.
+            **Professional UI debugging tool for developers**
+            
+            ### 🎯 What's New
+            - ✅ Complete OOP architecture (Service Manager v2.0 + Overlay GUI v3.0)
+            - ✅ 60-90% CPU reduction with selector-based I/O
+            - ✅ Photoshop-style layer inspector
+            - ✅ Direct AI assistant integration
+            - ✅ Cross-platform auto-start service
+            
+            ### 📦 Downloads
+            Choose the installer for your platform:
+            - **Windows**: `HighlightAssist-Setup-Windows.bat` or `.exe`
+            - **Linux**: `HighlightAssist-Setup-Linux.sh`
+            - **macOS**: `HighlightAssist-Setup-macOS.sh`
+            
+            ### 📖 Documentation
+            - [Installation Guide](https://github.com/Skullcandyxxx/HighlightAssist#-installation)
+            - [Usage Guide](https://github.com/Skullcandyxxx/HighlightAssist#-usage)
+            - [Full Documentation](https://github.com/Skullcandyxxx/HighlightAssist/blob/master/README.md)
+            
+            **Made with ❤️ by [Skullcandyxxx](https://github.com/Skullcandyxxx)**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
