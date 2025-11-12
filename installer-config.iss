@@ -25,7 +25,7 @@ LicenseFile=LICENSE
 PrivilegesRequired=lowest
 OutputDir=installers
 OutputBaseFilename=HighlightAssist-Setup-v{#MyAppVersion}
-SetupIconFile=icons\icon-128.png
+SetupIconFile=icons\icon128.png
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -49,7 +49,7 @@ Source: "bridge.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "service-manager.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
-Source: "icons\icon-128.png"; DestDir: "{app}\icons"; Flags: ignoreversion
+Source: "icons\icon128.png"; DestDir: "{app}\icons"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"
