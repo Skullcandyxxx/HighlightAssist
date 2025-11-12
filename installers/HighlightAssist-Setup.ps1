@@ -73,7 +73,8 @@ try {
     $WshShell = New-Object -ComObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut($shortcutPath)
     $Shortcut.TargetPath = $pythonExe
-    $Shortcut.Arguments = ""$bridgeScript""
+    # Quote the bridge script path properly for the shortcut
+    $Shortcut.Arguments = '"' + $bridgeScript + '"'
     $Shortcut.WorkingDirectory = $tempDir
     $Shortcut.WindowStyle = 7  # Minimized
     $Shortcut.Description = "HighlightAssist Bridge Service"
@@ -89,7 +90,8 @@ try {
 Write-Host ""
 Write-Host "Starting service..." -ForegroundColor Yellow
 try {
-    Start-Process -FilePath $pythonExe -ArgumentList ""$bridgeScript"" -WorkingDirectory $tempDir -WindowStyle Minimized
+    # Start the bridge script using Start-Process with ArgumentList to avoid quoting issues
+    Start-Process -FilePath $pythonExe -ArgumentList $bridgeScript -WorkingDirectory $tempDir -WindowStyle Minimized
     Start-Sleep -Seconds 2
     Write-Host "Service started successfully!" -ForegroundColor Green
 } catch {

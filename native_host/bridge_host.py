@@ -20,6 +20,7 @@ from typing import Any, Dict, Optional
 HOST_NAME = "com.highlightassist.bridge"
 CONTROL_PORT = 5054
 BRIDGE_PORT = 5055
+DEFAULT_SHELL = os.name == "nt"
 CONNECT_TIMEOUT_SECONDS = 5
 SERVICE_BOOT_RETRIES = 10
 SERVICE_BOOT_SLEEP = 0.5
@@ -153,10 +154,54 @@ def ensure_service_manager() -> bool:
     return False
 
 
-def handle_command(command: str) -> Dict[str, Any]:
+def run_workspace_command(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not payload:
+        return {"status": "error", "error": "missing_payload"}
+
+    cwd = payload.get("cwd")
+    command = payload.get("command")
+    if not cwd or not command:
+        return {"status": "error", "error": "missing_cwd_or_command"}
+
+    workdir = Path(cwd).expanduser()
+    if not workdir.exists():
+        return {"status": "error", "error": "cwd_not_found"}
+
+    shell = payload.get("shell", DEFAULT_SHELL)
+    creationflags = CREATE_NO_WINDOW | DETACHED_PROCESS
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=str(workdir),
+            shell=shell,
+            creationflags=creationflags,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        log(
+            "Workspace command launched",
+            {"cwd": str(workdir), "command": command, "pid": process.pid},
+        )
+        return {
+            "status": "started",
+            "pid": process.pid,
+            "cwd": str(workdir),
+            "command": command,
+        }
+    except FileNotFoundError:
+        return {"status": "error", "error": "command_not_found"}
+    except Exception as exc:
+        log("Workspace command failed", {"error": str(exc), "cwd": str(workdir)})
+        return {"status": "error", "error": str(exc)}
+
+
+def handle_command(command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Handle extension command and return response payload."""
     if command == "ping":
         return {"status": "ok", "bridgeRunning": is_port_open(BRIDGE_PORT)}
+
+    if command == "run_workspace_command":
+        return run_workspace_command(payload)
 
     if command not in {"start_bridge", "stop_bridge", "bridge_status"}:
         return {"status": "error", "error": "unknown_command"}
@@ -193,7 +238,7 @@ def main() -> None:
             break
 
         command = message.get("command")
-        response = handle_command(command) if command else {"status": "error", "error": "missing_command"}
+        response = handle_command(command, message.get("payload")) if command else {"status": "error", "error": "missing_command"}
         send_message(response)
 
 

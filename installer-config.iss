@@ -17,14 +17,23 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases
+AppContact=security@lawhub.dev
+AppCopyright=© {#MyAppPublisher} {#MyAppVersion}
 DefaultDirName={userappdata}\HighlightAssist
 DefaultGroupName=HighlightAssist
 DisableProgramGroupPage=yes
 LicenseFile=LICENSE
+InfoBeforeFile=installer-assets\INFO_BEFORE.txt
+InfoAfterFile=installer-assets\INFO_AFTER.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
 OutputDir=installers
 OutputBaseFilename=HighlightAssist-Setup-v{#MyAppVersion}
+#if FileExists('icons\\icon128.ico')
+UninstallDisplayIcon={app}\icons\icon128.ico
+#else
+UninstallDisplayIcon={uninstallexe}
+#endif
 // Use ICO file for Setup icon if available (ISCC requires .ico). Fall back to no icon when missing.
 #if FileExists('icons\\icon128.ico')
 SetupIconFile=icons\\icon128.ico
@@ -32,6 +41,12 @@ SetupIconFile=icons\\icon128.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+WizardResizable=yes
+WizardSizePercent=110
+WizardImageStretch=yes
+WizardImageAlphaFormat=premultiplied
+WizardImageBackColor=clWhite
+WizardSmallImageBackColor=clWhite
 // Wizard images are optional in CI; only set them if the files exist
 #if FileExists('installer-wizard-image.bmp')
 WizardImageFile=installer-wizard-image.bmp
