@@ -25,7 +25,10 @@ LicenseFile=LICENSE
 PrivilegesRequired=lowest
 OutputDir=installers
 OutputBaseFilename=HighlightAssist-Setup-v{#MyAppVersion}
-SetupIconFile=icons\icon128.png
+// Use ICO file for Setup icon if available (ISCC requires .ico). Fall back to no icon when missing.
+#if FileExists('icons\\icon128.ico')
+SetupIconFile=icons\\icon128.ico
+#endif
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -50,6 +53,9 @@ Source: "service-manager.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "icons\icon128.png"; DestDir: "{app}\icons"; Flags: ignoreversion
+#if FileExists('icons\\icon128.ico')
+Source: "icons\\icon128.ico"; DestDir: "{app}\\icons"; Flags: ignoreversion
+#endif
 
 [Icons]
 Name: "{group}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"
