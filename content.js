@@ -14,12 +14,73 @@ setTimeout(() => {
 // Listen for responses from overlay-gui.js
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  const data = event.data || {};
   
-  if (event.data.type === 'HIGHLIGHT_ASSIST_RESPONSE') {
+  if (data.type === 'HIGHLIGHT_ASSIST_RESPONSE') {
     // Handle response from overlay-gui
     if (pendingResponse) {
-      pendingResponse(event.data);
+      pendingResponse(data);
       pendingResponse = null;
+    }
+  }
+
+  if (data.type === 'HIGHLIGHT_ASSIST_NATIVE_REQUEST') {
+    chrome.runtime.sendMessage({
+      action: 'bridgeNativeCommand',
+      command: data.command,
+      payload: data.payload || {}
+    }, (response) => {
+      const hasError = chrome.runtime.lastError;
+      const payload = hasError ? {
+        success: false,
+        error: chrome.runtime.lastError.message
+      } : (response || { success: false, error: 'NO_RESPONSE' });
+
+      window.postMessage({
+        type: 'HIGHLIGHT_ASSIST_NATIVE_RESPONSE',
+        requestId: data.requestId,
+        command: data.command,
+        response: payload
+      }, '*');
+    });
+  }
+
+  if (data.type === 'HIGHLIGHT_ASSIST_STORAGE') {
+    // Proxy storage requests to extension storage (chrome.storage.local)
+    const reqId = data.requestId;
+    const op = data.op || 'get';
+    const key = data.key;
+    const value = data.value;
+
+    try {
+      if (op === 'get') {
+        chrome.storage.local.get(key, (result) => {
+          window.postMessage({
+            type: 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE',
+            requestId: reqId,
+            ok: true,
+            value: result[key]
+          }, '*');
+        });
+      } else if (op === 'set') {
+        const obj = {};
+        obj[key] = value;
+        chrome.storage.local.set(obj, () => {
+          window.postMessage({ type: 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE', requestId: reqId, ok: true }, '*');
+        });
+      } else if (op === 'remove') {
+        chrome.storage.local.remove(key, () => {
+          window.postMessage({ type: 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE', requestId: reqId, ok: true }, '*');
+        });
+      } else if (op === 'getAll') {
+        chrome.storage.local.get(null, (result) => {
+          window.postMessage({ type: 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE', requestId: reqId, ok: true, value: result }, '*');
+        });
+      } else {
+        window.postMessage({ type: 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE', requestId: reqId, ok: false, error: 'unknown_op' }, '*');
+      }
+    } catch (e) {
+      window.postMessage({ type: 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE', requestId: reqId, ok: false, error: e.message }, '*');
     }
   }
 });

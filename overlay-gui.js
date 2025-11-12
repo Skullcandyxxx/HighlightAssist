@@ -303,8 +303,93 @@
     mouseY: 0,
     
     // Console logs
-    consoleLogs: []
+    consoleLogs: [],
+
+    // Native host integration
+    nativeHost: {
+      available: false,
+      running: false,
+      lastChecked: null,
+      lastResponse: null,
+      error: null
+    },
+    nativeHostStatusLoading: false,
+    nativeLaunchInProgress: false
   };
+
+  var pendingNativeHostRequests = new Map();
+  var nativeRequestCounter = 0;
+  var pendingStorageRequests = new Map();
+  var storageRequestCounter = 0;
+
+  function callNativeHost(command, payload, timeoutMs) {
+    return new Promise(function(resolve, reject) {
+      var requestId = 'ha-native-' + (++nativeRequestCounter);
+      var timeout = setTimeout(function() {
+        pendingNativeHostRequests.delete(requestId);
+        reject(new Error('Native host timeout'));
+      }, timeoutMs || 6000);
+
+      pendingNativeHostRequests.set(requestId, {
+        resolve: resolve,
+        reject: reject,
+        timeout: timeout,
+        command: command
+      });
+
+      window.postMessage({
+        type: 'HIGHLIGHT_ASSIST_NATIVE_REQUEST',
+        requestId: requestId,
+        command: command,
+        payload: payload || {}
+      }, '*');
+    });
+  }
+
+  function callStorage(op, key, value, timeoutMs) {
+    return new Promise(function(resolve, reject) {
+      var requestId = 'ha-store-' + (++storageRequestCounter);
+      var timeout = setTimeout(function() {
+        pendingStorageRequests.delete(requestId);
+        reject(new Error('Storage request timeout'));
+      }, timeoutMs || 6000);
+
+      pendingStorageRequests.set(requestId, { resolve: resolve, reject: reject, timeout: timeout });
+
+      window.postMessage({ type: 'HIGHLIGHT_ASSIST_STORAGE', requestId: requestId, op: op, key: key, value: value }, '*');
+    });
+  }
+
+  function refreshNativeHostStatus(options) {
+    if (state.nativeHostStatusLoading) return;
+    state.nativeHostStatusLoading = true;
+    if (!options || !options.silent) {
+      log('Checking native host status', 'info');
+    }
+
+    callNativeHost('bridge_status')
+      .then(function(response) {
+        updateNativeHostState({
+          available: true,
+          running: Boolean(response?.managerResponse?.running || response?.bridgeRunning),
+          lastChecked: Date.now(),
+          lastResponse: response,
+          error: null
+        });
+      })
+      .catch(function(error) {
+        updateNativeHostState({
+          available: false,
+          running: false,
+          lastChecked: Date.now(),
+          error: error.message
+        });
+      })
+      .finally(function() {
+        state.nativeHostStatusLoading = false;
+        updateUI();
+      });
+  }
 
   const analyzer = new ElementAnalyzer();
   
@@ -349,6 +434,21 @@
       log('Failed to load settings: ' + e.message, 'error');
     }
     return false;
+  }
+
+  function injectNativeStyles() {
+    if (document.getElementById('ha-native-style')) return;
+    var styleTag = document.createElement('style');
+    styleTag.id = 'ha-native-style';
+    styleTag.setAttribute('data-ha-ui', 'true');
+    styleTag.textContent = `
+      @keyframes ha-pulse {
+        0% { box-shadow: 0 0 0 rgba(251, 191, 36, 0.35); transform: translateZ(0); }
+        50% { box-shadow: 0 0 18px rgba(251, 191, 36, 0.55); }
+        100% { box-shadow: 0 0 0 rgba(251, 191, 36, 0.35); }
+      }
+    `;
+    document.head.appendChild(styleTag);
   }
 
   // ====================================================================
@@ -1463,97 +1563,6 @@
     return html;
   }
 
-  // Add this after detecting if bridge is not connected
-// Enhanced setup wizard with animation
-function showSetupWizard() {
-  var os = detectOS(); // 'windows', 'mac', or 'linux'
-  var installerUrl = '';
-  var installerFile = '';
-  var installerName = '';
-  var icon = '';
-  
-  if (os === 'windows') {
-    // Prefer Releases page/downloads. Script installer is always present; .exe will be attached by CI when available.
-    installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
-    installerFile = 'HighlightAssist-Setup-Windows.bat';
-    installerName = 'Windows Installer (script)';
-    icon = '🪟';
-  } else if (os === 'mac') {
-    installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
-    installerFile = 'HighlightAssist-Setup-macOS.sh';
-    installerName = 'macOS Installer (.sh)';
-    icon = '🍎';
-  } else {
-    installerUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/latest/download/';
-    installerFile = 'HighlightAssist-Setup-Linux.sh';
-    installerName = 'Linux Installer (.sh)';
-    icon = '🐧';
-  }
-  
-  var html = '<div style="text-align: center; padding: 20px; animation: fadeIn 0.5s;">';
-  
-  // Animated icon
-  html += '<div style="font-size: 64px; margin-bottom: 16px; animation: bounce 2s infinite;">';
-  html += icon;
-  html += '</div>';
-  
-  // Title
-  html += '<h3 style="color: #f59e0b; margin-bottom: 8px; font-size: 16px;"> Service Not Detected</h3>';
-  html += '<p style="color: #94a3b8; font-size: 12px; margin-bottom: 20px;">Install the bridge service to enable AI features</p>';
-  
-  // Steps
-  html += '<div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: left;">';
-  html += '<div style="font-size: 11px; font-weight: 600; color: #60a5fa; margin-bottom: 12px;"> Quick Setup (30 seconds)</div>';
-  
-  html += '<div style="display: flex; align-items: start; margin-bottom: 10px;">';
-  html += '<div style="background: #3b82f6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 10px; font-weight: 700; flex-shrink: 0;">1</div>';
-  html += '<div style="color: #cbd5e1; font-size: 11px;">Download installer for ' + os.toUpperCase() + '</div>';
-  html += '</div>';
-  
-  html += '<div style="display: flex; align-items: start; margin-bottom: 10px;">';
-  html += '<div style="background: #3b82f6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 10px; font-weight: 700; flex-shrink: 0;">2</div>';
-  html += '<div style="color: #cbd5e1; font-size: 11px;">Run the installer (auto-installs Python deps)</div>';
-  html += '</div>';
-  
-  html += '<div style="display: flex; align-items: start;">';
-  html += '<div style="background: #3b82f6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 10px; font-weight: 700; flex-shrink: 0;">3</div>';
-  html += '<div style="color: #cbd5e1; font-size: 11px;">Click "Start" button above - Done! </div>';
-  html += '</div>';
-  
-  html += '</div>';
-  
-  // Download button (uses data attribute for installer URL)
-  html += '<button id="ha-download-installer" data-installer-url="' + installerUrl + installerFile + '" data-installer-name="' + installerFile + '" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); transition: transform 0.2s; cursor: pointer;">';
-  html += '📥 Download ' + installerName;
-  html += '</button>';
-  
-  // Manual link
-  html += '<div style="margin-top: 16px;">';
-  html += '<a href="https://github.com/Skullcandyxxx/HighlightAssist#readme" target="_blank" style="color: #60a5fa; font-size: 10px; text-decoration: underline;">View full installation guide </a>';
-  html += '</div>';
-  
-  html += '</div>';
-  
-  // CSS animations
-  html += '<style>';
-  html += '@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }';
-  html += '@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }';
-  html += 'a:hover { transform: scale(1.05) !important; }';
-  html += '</style>';
-  
-  return html;
-}
-
-function detectOS() {
-  var platform = navigator.platform.toLowerCase();
-  var userAgent = navigator.userAgent.toLowerCase();
-  
-  if (platform.indexOf('win') !== -1) return 'windows';
-  if (platform.indexOf('mac') !== -1 || userAgent.indexOf('mac') !== -1) return 'mac';
-  return 'linux';
-}
-
-
   function renderBridgeTab() {
     var statusColor = state.bridgeConnected ? '#10b981' : '#ef4444';
     var statusText = state.bridgeConnected ? '✓ Connected' : '✗ Disconnected';
@@ -1585,15 +1594,35 @@ function detectOS() {
     }
     html += '</div>';
     
-    html += '<button id="ha-launch-service" style="padding: 10px 16px; background: ' + (state.bridgeConnected ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #10b981, #059669)') + '; border: none; border-radius: 6px; color: white; font-size: 11px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); white-space: nowrap;">';
-    html += state.bridgeConnected ? '🛑 Stop' : '🚀 Start';
+    var launchGradient = state.bridgeConnected ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #10b981, #059669)';
+    if (state.nativeLaunchInProgress) {
+      launchGradient = 'linear-gradient(135deg, #fbbf24, #f59e0b)';
+    }
+    var launchLabel = state.bridgeConnected ? '🛑 Stop' : (state.nativeLaunchInProgress ? '⏳ Launching…' : '🚀 Start');
+    var launchStyles = 'padding: 10px 16px; background: ' + launchGradient + '; border: none; border-radius: 6px; color: white; font-size: 11px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); white-space: nowrap; transition: all 0.2s ease;';
+    if (state.nativeLaunchInProgress) {
+      launchStyles += ' opacity: 0.85; pointer-events: none; animation: ha-pulse 1.4s ease-in-out infinite;';
+    }
+    html += '<button id="ha-launch-service" style="' + launchStyles + '">';
+    html += launchLabel;
     html += '</button>';
     html += '</div>';
-    
-    // Show setup wizard if bridge not connected
-    if (!state.bridgeConnected) {
-      html += showSetupWizard();
+    var nativeStatus = state.nativeHost || {};
+    var nativeColor = nativeStatus.running ? '#10b981' : (nativeStatus.available ? '#fbbf24' : '#ef4444');
+    var nativeText = nativeStatus.running ? 'Bridge helper ready' : (nativeStatus.available ? 'Helper idle' : 'Helper offline');
+    if (state.nativeHostStatusLoading) {
+      nativeText = 'Checking helper status…';
+      nativeColor = '#60a5fa';
+    } else if (nativeStatus.error) {
+      nativeText = nativeStatus.error;
+      nativeColor = '#f87171';
     }
+    html += '<div style="margin-top: -4px; margin-bottom: 12px; font-size: 9px; color: #94a3b8; text-align: right;">';
+    html += '<span style="color: ' + nativeColor + '; font-weight: 600;">' + nativeText + '</span>';
+    if (nativeStatus.lastChecked) {
+      html += '<span style="margin-left: 6px; opacity: 0.7;">• ' + new Date(nativeStatus.lastChecked).toLocaleTimeString() + '</span>';
+    }
+    html += '</div>';
     
     // AI Configuration Helper
     html += '<div style="background-color: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 10px;">';
@@ -1602,10 +1631,35 @@ function detectOS() {
     html += '<code style="display: block; background-color: rgba(0, 0, 0, 0.4); padding: 6px; border-radius: 4px; font-size: 9px; color: #fbbf24; margin-bottom: 4px; overflow-x: auto; white-space: pre;">ws://localhost:5055/ws</code>';
     html += '<button id="ha-copy-ws-url" style="padding: 4px 8px; background-color: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px; color: #60a5fa; cursor: pointer; font-size: 8px; font-weight: 600; width: 100%;">📋 Copy WebSocket URL</button>';
     html += '</div>';
+
+    // Projects quick-run section (register local workspaces and start commands via native host)
+    html += '<div style="background-color: rgba(16, 185, 129, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.1); margin-bottom: 10px;">';
+    html += '<div style="font-size: 9px; font-weight: 600; color: #10b981; margin-bottom: 6px;">🚀 Projects</div>';
+    html += '<div id="ha-projects-list" style="max-height: 160px; overflow-y: auto; margin-bottom: 8px;">';
+    html += '<div style="font-size: 10px; color: #94a3b8;">No projects configured. Click "Add Project" to register a workspace.</div>';
+    html += '</div>';
+    html += '<div style="display:flex; gap:6px;">';
+    html += '<button id="ha-add-project" style="flex:1; padding: 6px; background-color: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; color: #10b981; cursor:pointer; font-size: 11px; font-weight:600;">＋ Add Project</button>';
+    html += '<button id="ha-refresh-projects" style="padding:6px; background-color: rgba(255,255,255,0.02); border:1px solid rgba(0,0,0,0.05); border-radius:6px; color:#94a3b8; cursor:pointer; font-size:11px;">🔄</button>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div style="background-color: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 6px; border: 1px solid rgba(71, 85, 105, 0.4); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">';
+    html += '<div>';
+    html += '<div style="font-size: 9px; color: #94a3b8; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px;">Native Helper</div>';
+    html += '<div style="font-size: 11px; color: #f8fafc; font-weight: 600;">' + (nativeStatus.running ? 'Bridge daemon active' : nativeStatus.available ? 'Ready to launch via extension' : 'Awaiting local daemon') + '</div>';
+    if (nativeStatus.error) {
+      html += '<div style="font-size: 9px; color: #f87171;">' + nativeStatus.error + '</div>';
+    } else {
+      html += '<div style="font-size: 9px; color: #94a3b8;">The extension uses a secure native helper to start/stop the AI bridge.</div>';
+    }
+    html += '</div>';
+    html += '<button id="ha-refresh-native-status" style="padding: 6px 10px; border-radius: 5px; border: 1px solid rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.15); color: #93c5fd; font-size: 10px; font-weight: 600; cursor: pointer;">↻ Refresh</button>';
+    html += '</div>';
     
     html += '</div>';
     
-    // Manual Configuration (Collapsible)
+    // Manual Configuration (Collapsible)</
     html += '<details style="margin-bottom: 16px;"><summary style="padding: 10px; background-color: rgba(100, 116, 139, 0.15); border: 1px solid rgba(100, 116, 139, 0.3); border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; color: #94a3b8;">⚙️ Manual Configuration</summary>';
     html += '<div style="padding: 12px; background-color: rgba(15, 23, 42, 0.4); border: 1px solid rgba(71, 85, 105, 0.3); border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;">';
     
@@ -2619,6 +2673,115 @@ function detectOS() {
     }
   }
 
+  // ---------------------- Projects: storage and UI -----------------------
+  function loadProjectsList() {
+    // Get stored projects (key: ha_projects)
+    callStorage('get', 'ha_projects').then(function(value) {
+      var projects = Array.isArray(value) ? value : [];
+      renderProjects(projects);
+    }).catch(function() {
+      renderProjects([]);
+    });
+  }
+
+  function saveProjects(projects) {
+    return callStorage('set', 'ha_projects', projects);
+  }
+
+  function renderProjects(projects) {
+    var container = document.getElementById('ha-projects-list');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!projects || projects.length === 0) {
+      container.innerHTML = '<div style="font-size: 10px; color: #94a3b8;">No projects configured. Click "Add Project" to register a workspace.</div>';
+      return;
+    }
+
+    projects.forEach(function(p, idx) {
+      var card = document.createElement('div');
+      card.style.cssText = 'padding:8px; margin-bottom:6px; background: rgba(255,255,255,0.02); border:1px solid rgba(0,0,0,0.04); border-radius:6px; display:flex; justify-content:space-between; align-items:center;';
+      var info = document.createElement('div');
+      info.innerHTML = '<div style="font-size:11px; font-weight:600; color:#c4b5fd;">' + escapeHtml(p.name || ('Project ' + (idx+1))) + '</div>' + '<div style="font-size:10px; color:#94a3b8;">' + escapeHtml(p.cwd || '') + '</div>' + '<div style="font-size:10px; color:#94a3b8;">' + escapeHtml(p.command || '') + '</div>';
+      var actions = document.createElement('div');
+      actions.style.cssText = 'display:flex; gap:6px;';
+      var startBtn = document.createElement('button');
+      startBtn.textContent = '▶ Start';
+      startBtn.style.cssText = 'padding:6px; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:6px; border:none; cursor:pointer; font-weight:700;';
+      startBtn.addEventListener('click', function() {
+        startProject(p);
+      });
+      var editBtn = document.createElement('button');
+      editBtn.textContent = '✎';
+      editBtn.style.cssText = 'padding:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(0,0,0,0.05); border-radius:6px; color:#94a3b8; cursor:pointer;';
+      editBtn.addEventListener('click', function() { showEditProjectForm(projects, idx); });
+      var delBtn = document.createElement('button');
+      delBtn.textContent = '🗑';
+      delBtn.style.cssText = 'padding:6px; background:rgba(255,0,0,0.02); border:1px solid rgba(255,0,0,0.05); border-radius:6px; color:#f87171; cursor:pointer;';
+      delBtn.addEventListener('click', function() { deleteProject(projects, idx); });
+      actions.appendChild(startBtn);
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(info);
+      card.appendChild(actions);
+      container.appendChild(card);
+    });
+  }
+
+  function showAddProjectForm() {
+    // Simple prompt-based flow (keeps code small). Could be replaced with modal form.
+    var name = prompt('Project name (e.g. Portal)');
+    if (!name) return;
+    var cwd = prompt('Project folder (absolute path)');
+    if (!cwd) return;
+    var cmd = prompt('Command to run (e.g. npm run dev)');
+    if (!cmd) return;
+    callStorage('get', 'ha_projects').then(function(current) {
+      var projects = Array.isArray(current) ? current : [];
+      projects.push({ name: name, cwd: cwd, command: cmd });
+      saveProjects(projects).then(function() { loadProjectsList(); showSuccess('Project saved'); }).catch(function(e){ showError('Save failed: '+e.message); });
+    }).catch(function() {
+      var projects = [{ name: name, cwd: cwd, command: cmd }];
+      saveProjects(projects).then(function() { loadProjectsList(); showSuccess('Project saved'); }).catch(function(e){ showError('Save failed: '+e.message); });
+    });
+  }
+
+  function showEditProjectForm(projects, idx) {
+    var p = projects[idx];
+    var name = prompt('Project name', p.name);
+    if (name === null) return;
+    var cwd = prompt('Project folder (absolute path)', p.cwd);
+    if (cwd === null) return;
+    var cmd = prompt('Command to run', p.command);
+    if (cmd === null) return;
+    projects[idx] = { name: name, cwd: cwd, command: cmd };
+    saveProjects(projects).then(function(){ loadProjectsList(); showSuccess('Project updated'); }).catch(function(e){ showError('Save failed: '+e.message); });
+  }
+
+  function deleteProject(projects, idx) {
+    if (!confirm('Delete this project?')) return;
+    projects.splice(idx, 1);
+    saveProjects(projects).then(function(){ loadProjectsList(); showSuccess('Project removed'); }).catch(function(e){ showError('Delete failed: '+e.message); });
+  }
+
+  function startProject(p) {
+    if (!p || !p.cwd || !p.command) { showError('Invalid project configuration'); return; }
+    // Ask native host to run workspace command
+    updateNativeHostState({ running: state.nativeHost.running });
+    callNativeHost('run_workspace_command', { cwd: p.cwd, command: p.command, shell: true }, 10000).then(function(resp) {
+      if (resp && resp.status === 'started') {
+        showSuccess('Project started (pid: ' + resp.pid + ')');
+        // Optionally open default URL if provided
+        if (p.openUrl) {
+          window.open(p.openUrl, '_blank');
+        }
+      } else {
+        showError('Failed to start: ' + (resp && resp.error ? resp.error : JSON.stringify(resp)));
+      }
+    }).catch(function(err) {
+      showError('Native host error: ' + err.message);
+    });
+  }
+
   function setupMainTabListeners() {
     var toggleBtn = document.getElementById('ha-toggle-inspect');
     if (toggleBtn) toggleBtn.addEventListener('click', toggleInspecting);
@@ -2834,18 +2997,72 @@ function detectOS() {
     if (launchBtn) {
       launchBtn.addEventListener('click', function() {
         if (state.bridgeConnected) {
-          // Stop service
-          if (state.bridgeWS) {
-            state.bridgeWS.close();
-          }
-          log('Bridge service stopped', 'info');
+          state.nativeLaunchInProgress = true;
+          updateUI();
+          callNativeHost('stop_bridge')
+            .then(function(response) {
+              if (state.bridgeWS) {
+                state.bridgeWS.close();
+              }
+              updateNativeHostState({
+                running: false,
+                available: true,
+                lastChecked: Date.now(),
+                lastResponse: response,
+                error: null
+              });
+              log('Bridge daemon stop requested', 'info');
+            })
+            .catch(function(error) {
+              log('Failed to stop bridge service: ' + error.message, 'error');
+            })
+            .finally(function() {
+              state.nativeLaunchInProgress = false;
+              updateUI();
+            });
         } else {
-          // Auto-start service (attempts to connect)
-          log('Attempting to start bridge service...', 'info');
-          connectBridge();
-          // Note: Actual service startup would require backend script
-          // For now, this just attempts connection to existing service
+          state.nativeLaunchInProgress = true;
+          updateUI();
+          log('Requesting native helper to start the bridge…', 'info');
+          callNativeHost('start_bridge')
+            .then(function(response) {
+              updateNativeHostState({
+                running: true,
+                available: true,
+                lastChecked: Date.now(),
+                lastResponse: response,
+                error: null
+              });
+              log('Native helper acknowledged bridge start', 'success');
+              setTimeout(function() {
+                connectBridge();
+              }, 600);
+            })
+            .catch(function(error) {
+              log('Bridge launch failed: ' + error.message, 'error');
+              updateNativeHostState({
+                running: false,
+                available: false,
+                lastChecked: Date.now(),
+                error: error.message
+              });
+            })
+            .finally(function() {
+              state.nativeLaunchInProgress = false;
+              updateUI();
+            });
         }
+      });
+    }
+    
+    var refreshNativeBtn = document.getElementById('ha-refresh-native-status');
+    if (refreshNativeBtn) {
+      refreshNativeBtn.addEventListener('click', function() {
+        refreshNativeBtn.disabled = true;
+        refreshNativeHostStatus();
+        setTimeout(function() {
+          refreshNativeBtn.disabled = false;
+        }, 1500);
       });
     }
     
@@ -2969,6 +3186,20 @@ function detectOS() {
         log('Bridge data exported', 'success');
       });
     }
+
+    // Projects UI actions
+    var addProjBtn = document.getElementById('ha-add-project');
+    if (addProjBtn) {
+      addProjBtn.addEventListener('click', function() {
+        showAddProjectForm();
+      });
+    }
+
+    var refreshProjBtn = document.getElementById('ha-refresh-projects');
+    if (refreshProjBtn) refreshProjBtn.addEventListener('click', loadProjectsList);
+
+    // Load projects on tab open
+    loadProjectsList();
     
     // Send custom message button
     var sendCustomBtn = document.getElementById('ha-send-custom-message');
@@ -3020,96 +3251,7 @@ function detectOS() {
       });
     });
 
-    // Enhance installer download button: query GitHub Releases API to find the best asset
-    (function enhanceInstallerButton() {
-      try {
-        var btn = document.getElementById('ha-download-installer');
-        if (!btn) return;
-
-        var originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '🔎 Checking releases...';
-
-        // Determine platform preference from data-installer-name if present
-        var dataName = btn.getAttribute('data-installer-name') || '';
-        var platform = 'linux';
-        if (dataName.toLowerCase().includes('windows')) platform = 'windows';
-        else if (dataName.toLowerCase().includes('mac')) platform = 'mac';
-
-        // Fetch latest release assets from GitHub API (public repo)
-        fetch('https://api.github.com/repos/Skullcandyxxx/HighlightAssist/releases/latest')
-          .then(function(resp) { if (!resp.ok) throw new Error('Release fetch failed'); return resp.json(); })
-          .then(function(release) {
-            var assets = release.assets || [];
-
-            // Helper to find asset by regex
-            function findAsset(regex) {
-              for (var i = 0; i < assets.length; i++) {
-                if (regex.test(assets[i].name)) return assets[i];
-              }
-              return null;
-            }
-
-            var chosen = null;
-            if (platform === 'windows') {
-              // Prefer professional .exe (pattern: HighlightAssist-Setup-v*.exe)
-              chosen = findAsset(/^HighlightAssist-Setup-.*\.exe$/i) || findAsset(/^HighlightAssist-Setup-.*\.msi$/i);
-              if (!chosen) chosen = findAsset(/HighlightAssist-Setup-Windows\.bat$/i);
-            } else if (platform === 'mac') {
-              chosen = findAsset(/HighlightAssist-Setup-macOS\.sh$/i) || findAsset(/HighlightAssist-Setup-.*\.dmg$/i);
-            } else {
-              chosen = findAsset(/HighlightAssist-Setup-Linux\.sh$/i) || findAsset(/HighlightAssist-Setup-.*\.tar\.gz$/i);
-            }
-
-            if (chosen) {
-              // Replace button with anchor pointing to browser_download_url
-              var a = document.createElement('a');
-              a.href = chosen.browser_download_url;
-              a.target = '_blank';
-              a.rel = 'noopener noreferrer';
-              a.className = 'ha-download-btn';
-              a.style.display = 'inline-block';
-              a.textContent = '📥 Download ' + (chosen.name || dataName);
-              btn.parentNode.replaceChild(a, btn);
-            } else {
-              // No matching asset found - fallback to data-installer-url (script)
-              var fallback = btn.getAttribute('data-installer-url');
-              if (fallback) {
-                var a2 = document.createElement('a');
-                a2.href = fallback;
-                a2.target = '_blank';
-                a2.rel = 'noopener noreferrer';
-                a2.className = 'ha-download-btn';
-                a2.style.display = 'inline-block';
-                a2.textContent = '📥 Download ' + (dataName || 'Installer');
-                btn.parentNode.replaceChild(a2, btn);
-              } else {
-                btn.textContent = originalText;
-                btn.disabled = false;
-              }
-            }
-          })
-          .catch(function(err) {
-            // On error, fall back to provided URL
-            var fallback = btn.getAttribute('data-installer-url');
-            if (fallback) {
-              var a3 = document.createElement('a');
-              a3.href = fallback;
-              a3.target = '_blank';
-              a3.rel = 'noopener noreferrer';
-              a3.className = 'ha-download-btn';
-              a3.style.display = 'inline-block';
-              a3.textContent = '📥 Download ' + (btn.getAttribute('data-installer-name') || 'Installer');
-              btn.parentNode.replaceChild(a3, btn);
-            } else {
-              btn.textContent = originalText;
-              btn.disabled = false;
-            }
-          });
-      } catch (e) {
-        // silent
-      }
-    })();
+    refreshNativeHostStatus({ silent: true });
   }
 
   function setupConsoleTabListeners() {
@@ -3171,6 +3313,8 @@ function detectOS() {
       } catch (e) {
         logError(e, 'Load settings');
       }
+
+      injectNativeStyles();
       
       // Create UI panels
       var controlPanel, analysisPanel, layerInspectorPanel;
@@ -3231,55 +3375,6 @@ function detectOS() {
         
         updateUI();
       });
-    });
-
-    // Setup wizard download button handler (using event delegation)
-    document.addEventListener('click', function(e) {
-      var target = e.target;
-      
-      // Handle button or its children (in case click is on text node)
-      if (target.id === 'ha-download-installer' || target.closest('#ha-download-installer')) {
-        if (!target.id) target = target.closest('#ha-download-installer');
-        
-        var url = target.getAttribute('data-installer-url');
-        var filename = target.getAttribute('data-installer-name');
-        
-        if (!url || !filename) {
-          log('Download button missing data attributes', 'error');
-          return;
-        }
-        
-        log('Downloading installer: ' + filename, 'info');
-        log('URL: ' + url, 'info');
-        
-        fetch(url)
-          .then(function(response) { 
-            if (!response.ok) {
-              throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-            }
-            return response.blob(); 
-          })
-          .then(function(blob) {
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function() {
-              document.body.removeChild(a);
-              URL.revokeObjectURL(a.href);
-            }, 100);
-            log('Installer downloaded successfully: ' + filename, 'success');
-          })
-          .catch(function(error) {
-            logError(error, 'Download installer');
-            var confirmOpen = confirm('Download failed: ' + error.message + '\n\nOpen installer URL in new tab?');
-            if (confirmOpen) {
-              window.open(url, '_blank');
-            }
-          });
-      }
     });
 
     var isDragging = false;
@@ -3551,6 +3646,31 @@ function detectOS() {
           isInspecting: state.isInspecting,
           locked: state.locked
         }, '*');
+      }
+    } else if (event.data.type === 'HIGHLIGHT_ASSIST_NATIVE_RESPONSE') {
+      var pending = pendingNativeHostRequests.get(event.data.requestId);
+      if (!pending) return;
+      clearTimeout(pending.timeout);
+      pendingNativeHostRequests.delete(event.data.requestId);
+
+      var response = event.data.response || {};
+      if (response.success === false) {
+        pending.reject(new Error(response.error || 'Native host error'));
+      } else {
+        var payload = response.response || response;
+        payload.__raw = response;
+        pending.resolve(payload);
+      }
+    }
+    else if (event.data.type === 'HIGHLIGHT_ASSIST_STORAGE_RESPONSE') {
+      var pending = pendingStorageRequests.get(event.data.requestId);
+      if (!pending) return;
+      clearTimeout(pending.timeout);
+      pendingStorageRequests.delete(event.data.requestId);
+      if (event.data.ok) {
+        pending.resolve(event.data.value !== undefined ? event.data.value : null);
+      } else {
+        pending.reject(new Error(event.data.error || 'storage_error'));
       }
     }
   });

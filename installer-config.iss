@@ -56,6 +56,8 @@ Source: "icons\icon128.png"; DestDir: "{app}\icons"; Flags: ignoreversion
 #if FileExists('icons\\icon128.ico')
 Source: "icons\\icon128.ico"; DestDir: "{app}\\icons"; Flags: ignoreversion
 #endif
+Source: "native_host\dist\highlightassist-native-host.exe"; DestDir: "{app}\native_host"; Flags: ignoreversion
+Source: "native_host\manifests\com.highlightassist.bridge.json.tpl"; DestDir: "{app}\native_host\manifests"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"
@@ -74,6 +76,38 @@ Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssistBridge"; ValueData: "pythonw ""{app}\service-manager.py"""; Tasks: autostart
 
 [Code]
+const
+  NativeHostExtensionId = 'eoeeldombophiplndcfomgnfklmnkdce';
+
+function EscapeForJson(Value: string): string;
+begin
+  Result := Value;
+  StringChangeEx(Result, '\', '\\', True);
+end;
+
+procedure RegisterNativeMessagingHosts;
+var
+  TemplatePath, TemplateContent, HostPath, ChromeManifest, EdgeManifest: string;
+begin
+  TemplatePath := ExpandConstant('{app}\native_host\manifests\com.highlightassist.bridge.json.tpl');
+  if not LoadStringFromFile(TemplatePath, TemplateContent) then
+  begin
+    exit;
+  end;
+
+  HostPath := EscapeForJson(ExpandConstant('{app}\native_host\highlightassist-native-host.exe'));
+  StringChangeEx(TemplateContent, '{{HOST_PATH}}', HostPath, True);
+  StringChangeEx(TemplateContent, '{{EXTENSION_ID}}', NativeHostExtensionId, True);
+
+  ChromeManifest := ExpandConstant('{localappdata}\Google\Chrome\User Data\NativeMessagingHosts\com.highlightassist.bridge.json');
+  ForceDirectories(ExtractFileDir(ChromeManifest));
+  SaveStringToFile(ChromeManifest, TemplateContent, False);
+
+  EdgeManifest := ExpandConstant('{localappdata}\Microsoft\Edge\User Data\NativeMessagingHosts\com.highlightassist.bridge.json');
+  ForceDirectories(ExtractFileDir(EdgeManifest));
+  SaveStringToFile(EdgeManifest, TemplateContent, False);
+end;
+
 function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;
@@ -113,12 +147,15 @@ begin
     begin
       // Already handled by Registry section
     end;
+    RegisterNativeMessagingHosts;
   end;
 end;
 
 [UninstallRun]
 ; Stop the service before uninstalling
 Filename: "{cmd}"; Parameters: "/c taskkill /F /IM pythonw.exe /FI ""WINDOWTITLE eq service-manager.py*"""; Flags: runhidden; RunOnceId: "StopService"
+Filename: "{cmd}"; Parameters: "/c del ""{localappdata}\Google\Chrome\User Data\NativeMessagingHosts\com.highlightassist.bridge.json"""; Flags: runhidden ignoreerrors
+Filename: "{cmd}"; Parameters: "/c del ""{localappdata}\Microsoft\Edge\User Data\NativeMessagingHosts\com.highlightassist.bridge.json"""; Flags: runhidden ignoreerrors
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
