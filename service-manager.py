@@ -86,6 +86,16 @@ class ServiceManager:
         if not HAS_TRAY:
             return None
         try:
+            # Prefer a repo-provided icon asset if present
+            try:
+                assets_dir = Path(__file__).resolve().parent.parent / 'assets'
+                icon_path = assets_dir / 'icon-128.png'
+                if icon_path.exists():
+                    img = Image.open(str(icon_path)).convert('RGBA')
+                    img = img.resize(size)
+                    return img
+            except Exception:
+                pass
             img = Image.new('RGBA', size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
             # Draw a simple circular icon with HA initials
