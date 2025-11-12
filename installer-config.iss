@@ -105,13 +105,11 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
     // Create startup shortcut
-    if IsTaskSelected('autostart') then
+    if WizardIsTaskSelected('autostart') then
     begin
       // Already handled by Registry section
     end;
@@ -120,7 +118,7 @@ end;
 
 [UninstallRun]
 ; Stop the service before uninstalling
-Filename: "{cmd}"; Parameters: "/c taskkill /F /IM pythonw.exe /FI ""WINDOWTITLE eq service-manager.py*"""; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c taskkill /F /IM pythonw.exe /FI ""WINDOWTITLE eq service-manager.py*"""; Flags: runhidden; RunOnceId: "StopService"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
