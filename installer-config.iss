@@ -175,8 +175,8 @@ end;
 [UninstallRun]
 ; Stop the service before uninstalling
 Filename: "{cmd}"; Parameters: "/c taskkill /F /IM pythonw.exe /FI ""WINDOWTITLE eq service-manager.py*"""; Flags: runhidden; RunOnceId: "StopService"
-Filename: "{cmd}"; Parameters: "/c del ""{localappdata}\Google\Chrome\User Data\NativeMessagingHosts\com.highlightassist.bridge.json"""; Flags: runhidden ignoreerrors
-Filename: "{cmd}"; Parameters: "/c del ""{localappdata}\Microsoft\Edge\User Data\NativeMessagingHosts\com.highlightassist.bridge.json"""; Flags: runhidden ignoreerrors
+Filename: "{cmd}"; Parameters: "/c del ""{localappdata}\Google\Chrome\User Data\NativeMessagingHosts\com.highlightassist.bridge.json"""; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c del ""{localappdata}\Microsoft\Edge\User Data\NativeMessagingHosts\com.highlightassist.bridge.json"""; Flags: runhidden
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

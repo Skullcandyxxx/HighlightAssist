@@ -19,11 +19,12 @@ a = Analysis(
         ('core/notifier.py', 'core'),
     ],
     hiddenimports=[
-        'win10toast',
-        'notify2',
-        'pync',
-        'plyer',
-        'pystray',
+        # Platform-specific notification libraries (optional - code handles gracefully if missing)
+        # 'win10toast',  # Windows only
+        # 'notify2',     # Linux only  
+        # 'pync',        # macOS only
+        'plyer',         # Cross-platform fallback
+        'pystray',       # System tray
         'PIL.Image',
         'PIL.ImageDraw',
     ],
