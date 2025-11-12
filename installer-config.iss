@@ -29,8 +29,13 @@ SetupIconFile=icons\icon-128.png
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+// Wizard images are optional in CI; only set them if the files exist
+#if FileExists('installer-wizard-image.bmp')
 WizardImageFile=installer-wizard-image.bmp
+#endif
+#if FileExists('installer-wizard-small.bmp')
 WizardSmallImageFile=installer-wizard-small.bmp
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
