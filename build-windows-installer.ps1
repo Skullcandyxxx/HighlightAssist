@@ -27,7 +27,11 @@ Write-Host "[1/3] Checking prerequisites..." -ForegroundColor Green
 # Ensure required files exist
 $requiredFiles = @(
     "bridge.py",
-    "service-manager.py", 
+    "service_manager_v2.py",
+    "core/__init__.py",
+    "core/bridge_controller.py",
+    "core/tcp_server.py",
+    "core/notifier.py",
     "requirements.txt",
     "README.md",
     "LICENSE",

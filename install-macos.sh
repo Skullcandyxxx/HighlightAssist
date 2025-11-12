@@ -42,7 +42,7 @@ cat > "$PLIST_FILE" << EOF
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>$(pwd)/service-manager.py</string>
+        <string>$(pwd)/service_manager_v2.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

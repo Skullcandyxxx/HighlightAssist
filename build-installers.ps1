@@ -48,7 +48,11 @@ try {
     # Download required files
     `$files = @(
         "bridge.py",
-        "service-manager.py",
+        "service_manager_v2.py",
+        "core/__init__.py",
+        "core/bridge_controller.py",
+        "core/tcp_server.py",
+        "core/notifier.py",
         "requirements.txt"
     )
     
@@ -86,7 +90,7 @@ try {
     `$shortcutPath = Join-Path `$startupFolder "HighlightAssist-Bridge.lnk"
     
     `$pythonExe = (Get-Command python).Source
-    `$bridgeScript = Join-Path `$tempDir "service-manager.py"
+    `$bridgeScript = Join-Path `$tempDir "service_manager_v2.py"
     
     `$WshShell = New-Object -ComObject WScript.Shell
     `$Shortcut = `$WshShell.CreateShortcut(`$shortcutPath)
@@ -100,7 +104,7 @@ try {
     Write-Host "      Auto-start configured" -ForegroundColor Green
 } catch {
     Write-Host "      WARNING: Could not setup auto-start" -ForegroundColor Yellow
-    Write-Host "      You can start manually by running service-manager.py" -ForegroundColor Gray
+    Write-Host "      You can start manually by running service_manager_v2.py" -ForegroundColor Gray
 }
 
 # Start the service
@@ -184,9 +188,16 @@ mkdir -p "$INSTALL_DIR"
 
 echo "[2/4] Downloading HighlightAssist files..."
 cd "$INSTALL_DIR"
-for file in bridge.py service-manager.py requirements.txt; do
+# Download main files
+for file in bridge.py service_manager_v2.py requirements.txt; do
     curl -sSL "https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/$file" -o "$file"
     echo "      Downloaded: $file"
+done
+# Download core modules
+mkdir -p core
+for file in __init__.py bridge_controller.py tcp_server.py notifier.py; do
+    curl -sSL "https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/core/$file" -o "core/$file"
+    echo "      Downloaded: core/$file"
 done
 echo "      All files downloaded successfully"
 
@@ -200,12 +211,12 @@ echo "[4/4] Setting up auto-start..."
 mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/highlightassist.service" << EOF
 [Unit]
-Description=HighlightAssist Bridge Service
+Description=HighlightAssist Bridge Service (v2.0 OOP)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=$(which $PYTHON_CMD) $INSTALL_DIR/service-manager.py
+ExecStart=$(which $PYTHON_CMD) $INSTALL_DIR/service_manager_v2.py
 WorkingDirectory=$INSTALL_DIR
 Restart=on-failure
 RestartSec=5
@@ -280,9 +291,16 @@ mkdir -p "$INSTALL_DIR"
 
 echo "[2/4] Downloading HighlightAssist files..."
 cd "$INSTALL_DIR"
-for file in bridge.py service-manager.py requirements.txt; do
+# Download main files
+for file in bridge.py service_manager_v2.py requirements.txt; do
     curl -sSL "https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/$file" -o "$file"
     echo "      Downloaded: $file"
+done
+# Download core modules
+mkdir -p core
+for file in __init__.py bridge_controller.py tcp_server.py notifier.py; do
+    curl -sSL "https://raw.githubusercontent.com/Skullcandyxxx/HighlightAssist/master/core/$file" -o "core/$file"
+    echo "      Downloaded: core/$file"
 done
 echo "      All files downloaded successfully"
 
@@ -304,7 +322,7 @@ cat > "$HOME/Library/LaunchAgents/com.highlightassist.service.plist" << EOF
     <key>ProgramArguments</key>
     <array>
         <string>$(which $PYTHON_CMD)</string>
-        <string>$INSTALL_DIR/service-manager.py</string>
+        <string>$INSTALL_DIR/service_manager_v2.py</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$INSTALL_DIR</string>

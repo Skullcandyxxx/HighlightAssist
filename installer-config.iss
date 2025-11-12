@@ -6,18 +6,18 @@
 #define MyAppVersion "3.4.0"
 #define MyAppPublisher "Skullcandyxxx"
 #define MyAppURL "https://github.com/Skullcandyxxx/HighlightAssist"
-#define MyAppExeName "service-manager.py"
+#define MyAppExeName "service_manager_v2.py"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
 AppId={{E8F9A2B1-4C3D-5E6F-7A8B-9C0D1E2F3A4B}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-AppPublisher={#MyAppPublisher}
-AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}/issues
-AppUpdatesURL={#MyAppURL}/releases
-AppContact=security@lawhub.dev
+AppPublisher=Skullcandyxxx
+AppPublisherURL=https://github.com/Skullcandyxxx/HighlightAssist
+AppSupportURL=https://github.com/Skullcandyxxx/HighlightAssist/issues
+AppUpdatesURL=https://github.com/Skullcandyxxx/HighlightAssist/releases
+AppContact=skullcandyxxx@github.com
 AppCopyright=© {#MyAppPublisher} {#MyAppVersion}
 DefaultDirName={userappdata}\HighlightAssist
 DefaultGroupName=HighlightAssist
@@ -64,7 +64,11 @@ Name: "autostart"; Description: "Start HighlightAssist Bridge automatically when
 
 [Files]
 Source: "bridge.py"; DestDir: "{app}"; Flags: ignoreversion
-Source: "service-manager.py"; DestDir: "{app}"; Flags: ignoreversion
+Source: "service_manager_v2.py"; DestDir: "{app}"; Flags: ignoreversion
+Source: "core\__init__.py"; DestDir: "{app}\core"; Flags: ignoreversion
+Source: "core\bridge_controller.py"; DestDir: "{app}\core"; Flags: ignoreversion
+Source: "core\tcp_server.py"; DestDir: "{app}\core"; Flags: ignoreversion
+Source: "core\notifier.py"; DestDir: "{app}\core"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "icons\icon128.png"; DestDir: "{app}\icons"; Flags: ignoreversion
@@ -76,9 +80,9 @@ Source: "native_host\manifests\com.highlightassist.bridge.json.tpl"; DestDir: "{
 Source: "dist\HighlightAssist-Service-Manager.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"
+Name: "{group}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service_manager_v2.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"; Tasks: desktopicon
+Name: "{autodesktop}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service_manager_v2.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"; Tasks: desktopicon
 Name: "{group}\HighlightAssist Service Manager"; Filename: "{app}\HighlightAssist-Service-Manager.exe"
 
 [Run]
@@ -86,11 +90,11 @@ Name: "{group}\HighlightAssist Service Manager"; Filename: "{app}\HighlightAssis
 Filename: "{cmd}"; Parameters: "/c python -m pip install --upgrade pip"; StatusMsg: "Updating pip..."; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c python -m pip install -r ""{app}\requirements.txt"""; StatusMsg: "Installing Python dependencies..."; Flags: runhidden
 ; Start the service
-Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; Description: "Start HighlightAssist Bridge now"; Flags: nowait postinstall skipifsilent
+Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service_manager_v2.py"""; WorkingDir: "{app}"; Description: "Start HighlightAssist Bridge now"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; Auto-start registry entry
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssistBridge"; ValueData: "pythonw ""{app}\service-manager.py"""; Tasks: autostart
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssistBridge"; ValueData: "pythonw ""{app}\service_manager_v2.py"""; Tasks: autostart
 
 [Code]
 const
