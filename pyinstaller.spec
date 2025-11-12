@@ -44,9 +44,7 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
-
-# ...existing code...
-
+# Single-file executable (onefile mode)
 exe = EXE(
     pyz,
     a.scripts,
@@ -61,17 +59,6 @@ exe = EXE(
     upx=False,  # Disable UPX for AV compatibility
     console=True,
     # version resource removed for compatibility
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name='HighlightAssist-Service-Manager'
 )
 
 # --- Post-build: Windows code signing example ---
