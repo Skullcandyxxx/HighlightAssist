@@ -73,11 +73,13 @@ Source: "icons\\icon128.ico"; DestDir: "{app}\\icons"; Flags: ignoreversion
 #endif
 Source: "native_host\dist\highlightassist-native-host.exe"; DestDir: "{app}\native_host"; Flags: ignoreversion
 Source: "native_host\manifests\com.highlightassist.bridge.json.tpl"; DestDir: "{app}\native_host\manifests"; Flags: ignoreversion
+Source: "dist\HighlightAssist-Service-Manager.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\HighlightAssist Bridge"; Filename: "{cmd}"; Parameters: "/c start /min pythonw ""{app}\service-manager.py"""; WorkingDir: "{app}"; IconFilename: "{app}\icons\icon-128.png"; Tasks: desktopicon
+Name: "{group}\HighlightAssist Service Manager"; Filename: "{app}\HighlightAssist-Service-Manager.exe"
 
 [Run]
 ; Install Python dependencies

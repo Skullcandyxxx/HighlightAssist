@@ -68,6 +68,7 @@ echo.
 echo The HighlightAssist service is now running and will
 echo auto-start when Windows boots.
 echo.
+
 echo You can now use the extension's "Start" button to
 echo launch the bridge automatically!
 echo.
