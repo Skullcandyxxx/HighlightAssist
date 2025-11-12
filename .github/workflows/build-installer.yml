@@ -41,8 +41,18 @@ jobs:
       - name: Build HighlightAssist Service Manager
         run: |
           pyinstaller --noconfirm --clean pyinstaller.spec
+          ls -la dist/
+        shell: bash
 
-      - name: Archive HighlightAssist Service Manager
+      - name: Archive HighlightAssist Service Manager (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: HighlightAssist-Service-Manager-${{ matrix.os }}
+          path: dist/HighlightAssist-Service-Manager.exe
+
+      - name: Archive HighlightAssist Service Manager (Unix)
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: HighlightAssist-Service-Manager-${{ matrix.os }}
@@ -51,26 +61,48 @@ jobs:
       - name: Package platform-specific installer (Windows only)
         if: runner.os == 'Windows'
         run: |
-          choco install innosetup -y || true
-          pwsh -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer-config.iss"
+          choco install innosetup -y
+          if ($LASTEXITCODE -eq 0) {
+            & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer-config.iss
+          }
         shell: powershell
 
       - name: Generate script installers (non-Windows)
         if: runner.os != 'Windows'
         run: |
           echo "Generating script installer for ${RUNNER_OS}"
-          pwsh -NoProfile -ExecutionPolicy Bypass -Command "./build-installers.ps1" || true
+          chmod +x install-linux.sh install-macos.sh 2>/dev/null || true
         shell: bash
 
       - name: Collect artifacts
         run: |
           mkdir -p build_artifacts
+          
+          # Copy service manager executable
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            cp dist/HighlightAssist-Service-Manager.exe build_artifacts/ 2>/dev/null || true
+          else
+            cp dist/HighlightAssist-Service-Manager build_artifacts/ 2>/dev/null || true
+          fi
+          
+          # Copy native host if exists
           if [ -d native_host/dist ]; then
-            cp -r native_host/dist/* build_artifacts/ || true
+            cp -r native_host/dist/* build_artifacts/ 2>/dev/null || true
           fi
+          
+          # Copy installers if exists
           if [ -d installers ]; then
-            cp -r installers/* build_artifacts/ || true
+            cp -r installers/* build_artifacts/ 2>/dev/null || true
           fi
+          
+          # Copy platform-specific installer scripts
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            cp install-linux.sh build_artifacts/ 2>/dev/null || true
+          elif [ "${RUNNER_OS}" = "macOS" ]; then
+            cp install-macos.sh build_artifacts/ 2>/dev/null || true
+          fi
+          
+          ls -la build_artifacts/
         shell: bash
 
       - name: Upload artifacts
