@@ -15,6 +15,14 @@ from core.bridge_controller import BridgeController
 from core.notifier import NotificationManager
 from core.tcp_server import TCPControlServer
 
+# Try to import tray icon
+try:
+    from tray_icon import HighlightAssistTray
+    HAS_TRAY = True
+except ImportError:
+    HAS_TRAY = False
+    print("⚠️  Tray icon disabled (install: pip install pystray pillow)")
+
 # Setup logging
 LOG_DIR = Path.home() / '.highlightassist' / 'logs'
 if sys.platform.startswith('win'):
@@ -38,13 +46,19 @@ logger = logging.getLogger(__name__)
 class ServiceManager:
     """Main service manager - coordinates all components."""
     
-    def __init__(self, control_port: int = 5054, bridge_port: int = 5055):
+    def __init__(self, control_port: int = 5054, bridge_port: int = 5055, use_tray: bool = True):
         self.bridge = BridgeController(port=bridge_port)
         self.server = TCPControlServer(port=control_port)
         self.notifier = NotificationManager()
+        self.tray = None
+        self.use_tray = use_tray and HAS_TRAY
         
         # Set command handler
         self.server.set_handler(self._handle_command)
+        
+        # Create tray icon if available
+        if self.use_tray:
+            self.tray = HighlightAssistTray(self.bridge, self.notifier)
         
         logger.info('HighlightAssist Service Manager v2.0 initialized')
     
@@ -87,19 +101,26 @@ class ServiceManager:
             logger.info('Service manager running. Press Ctrl+C to stop.')
             self.notifier.notify('HighlightAssist', 'Service manager started')
             
-            # Block forever
-            import signal
-            import threading
-            event = threading.Event()
-            
-            def shutdown(signum, frame):
-                logger.info('Shutdown signal received')
-                event.set()
-            
-            signal.signal(signal.SIGINT, shutdown)
-            signal.signal(signal.SIGTERM, shutdown)
-            
-            event.wait()
+            # Run with tray icon if available
+            if self.use_tray and self.tray:
+                logger.info('Starting with system tray icon (purple gradient theme)')
+                # Tray icon will block until closed
+                self.tray.run()
+            else:
+                # Block until interrupted (console mode)
+                logger.info('Running in console mode (no tray icon)')
+                import signal
+                import threading
+                event = threading.Event()
+                
+                def shutdown(signum, frame):
+                    logger.info('Shutdown signal received')
+                    event.set()
+                
+                signal.signal(signal.SIGINT, shutdown)
+                signal.signal(signal.SIGTERM, shutdown)
+                
+                event.wait()
             
         except Exception:
             logger.exception('Fatal error in service manager')

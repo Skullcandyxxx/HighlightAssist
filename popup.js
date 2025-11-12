@@ -5,6 +5,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statusDiv = document.getElementById('status');
   const settingsBtn = document.getElementById('settingsBtn');
 
+  // Check if daemon is running
+  let daemonConnected = false;
+  
+  async function checkDaemonConnection() {
+    try {
+      const response = await fetch('http://localhost:5055/health', {
+        method: 'GET',
+        signal: AbortSignal.timeout(2000) // 2 second timeout
+      });
+      const data = await response.json();
+      return data.status === 'ok';
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  // Check daemon on popup load
+  daemonConnected = await checkDaemonConnection();
+  console.log('Daemon connection status:', daemonConnected);
+  
+  // Update daemon status badge
+  function updateDaemonStatusBadge(connected) {
+    const badge = document.getElementById('daemonStatus');
+    const icon = document.getElementById('daemonIcon');
+    const state = document.getElementById('daemonState');
+    
+    badge.style.display = 'block';
+    badge.className = 'daemon-badge ' + (connected ? 'connected' : 'disconnected');
+    icon.textContent = connected ? '✅' : '🔌';
+    state.textContent = connected ? 'Connected & Ready' : 'Not Running';
+  }
+  
+  updateDaemonStatusBadge(daemonConnected);
+
   // Get current tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -48,6 +82,500 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check if on localhost
   const isLocalhost = isLocalDevelopment(tab.url);
 
+  // Custom Modal Dialog Helper
+  function showCustomModal(config) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('customModal');
+      const modalIcon = document.getElementById('modalIcon');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+      const modalFooter = document.getElementById('modalFooter');
+
+      // Set content
+      modalIcon.textContent = config.icon || '🚀';
+      modalTitle.textContent = config.title || 'Dialog';
+      modalBody.innerHTML = config.body || '';
+      modalFooter.innerHTML = '';
+
+      // Add buttons
+      if (config.buttons) {
+        config.buttons.forEach(btn => {
+          const button = document.createElement('button');
+          button.className = `modal-btn ${btn.primary ? 'modal-btn-primary' : 'modal-btn-secondary'}`;
+          button.textContent = btn.text;
+          button.addEventListener('click', () => {
+            modal.classList.remove('active');
+            if (btn.onClick) btn.onClick();
+            resolve(btn.value);
+          });
+          modalFooter.appendChild(button);
+        });
+      }
+
+      // Show modal
+      modal.classList.add('active');
+
+      // Close on overlay click (use addEventListener instead of onclick)
+      const overlayClickHandler = (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+          modal.removeEventListener('click', overlayClickHandler);
+          resolve(null);
+        }
+      };
+      modal.addEventListener('click', overlayClickHandler);
+    });
+  }
+
+  // Show daemon installation prompt
+  async function showDaemonInstallPrompt() {
+    // Detect platform
+    const platform = navigator.platform.toLowerCase();
+    let platformName = 'Windows';
+    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.1.0/HighlightAssist-v1.1.0-win64.zip';
+    
+    if (platform.includes('mac')) {
+      platformName = 'macOS';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.1.0/HighlightAssist-v1.1.0-darwin.tar.gz';
+    } else if (platform.includes('linux')) {
+      platformName = 'Linux';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.1.0/HighlightAssist-v1.1.0-linux.tar.gz';
+    }
+    
+    const installHTML = `
+      <div class="modal-subtitle">The HighlightAssist Daemon is required to start development servers from the extension.</div>
+      
+      <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 12px; border-radius: 8px; margin: 16px 0;">
+        <div style="font-weight: 600; color: #92400e; margin-bottom: 6px;">⚙️ Daemon Features:</div>
+        <ul style="margin: 0; padding-left: 20px; color: #78350f; line-height: 1.6;">
+          <li>Automatically start dev servers from the extension</li>
+          <li>Manage localhost environments without terminal</li>
+          <li>Background service with system tray icon</li>
+          <li>Auto-starts with your OS</li>
+        </ul>
+      </div>
+      
+      <div style="margin: 16px 0;">
+        <div style="font-weight: 600; color: #475569; margin-bottom: 8px;">Installation Steps:</div>
+        <ol style="padding-left: 20px; margin: 0; line-height: 1.8; color: #64748b;">
+          <li>Download the daemon for <strong>${platformName}</strong></li>
+          <li>Extract the archive</li>
+          <li>Run the installer (install-${platformName.toLowerCase()}.sh or .bat)</li>
+          <li>Reload this extension</li>
+        </ol>
+      </div>
+      
+      <div class="modal-info">
+        💡 The daemon runs in the background and enables advanced features like automatic server management.
+      </div>
+    `;
+    
+    const result = await showCustomModal({
+      icon: '🔌',
+      title: 'Install HighlightAssist Daemon',
+      body: installHTML,
+      buttons: [
+        { text: 'Not Now', value: false, primary: false },
+        { 
+          text: `Download for ${platformName}`, 
+          value: true, 
+          primary: true,
+          onClick: () => {
+            chrome.tabs.create({ url: downloadLink });
+          }
+        }
+      ]
+    });
+    
+    return result;
+  }
+
+  // Shared function to add server launcher button handlers
+  function addServerLauncherHandlers() {
+    // Start dev server button
+    const startBtn = document.getElementById('startDevServer');
+    if (startBtn) {
+      startBtn.addEventListener('click', async () => {
+        // Check if daemon is connected first
+        if (!daemonConnected) {
+          await showDaemonInstallPrompt();
+          return;
+        }
+        
+        // Server type selection with custom modal
+        const serverTypes = [
+          { name: 'Vite', desc: 'React/Vue/Svelte', cmd: 'npm run dev', port: 5173 },
+          { name: 'Create React App', desc: 'React', cmd: 'npm start', port: 3000 },
+          { name: 'Next.js', desc: 'React Framework', cmd: 'npm run dev', port: 3000 },
+          { name: 'Angular', desc: 'Angular CLI', cmd: 'ng serve', port: 4200 },
+          { name: 'Python HTTP', desc: 'Simple Server', cmd: 'python -m http.server', port: 8000 },
+          { name: 'Flask', desc: 'Python Web', cmd: 'flask run', port: 5000 },
+          { name: 'Custom', desc: 'Your Command', cmd: null, port: null }
+        ];
+        
+        // Build server selection list
+        let listHTML = '<div class="modal-subtitle">Select your project type:</div>';
+        listHTML += '<ul class="modal-list">';
+        serverTypes.forEach((type, i) => {
+          listHTML += `
+            <li class="modal-list-item" data-index="${i}">
+              <strong>${type.name}</strong> - ${type.desc}
+              ${type.cmd ? `<br><span style="font-size: 12px; color: #64748b; font-family: monospace;">${type.cmd} (port ${type.port})</span>` : ''}
+            </li>
+          `;
+        });
+        listHTML += '</ul>';
+        
+        const choice = await showCustomModal({
+          icon: '⚡',
+          title: 'Start Development Server',
+          body: listHTML,
+          buttons: [
+            { text: 'Cancel', value: null, primary: false }
+          ]
+        });
+        
+        // Add click handlers to list items
+        setTimeout(() => {
+          document.querySelectorAll('.modal-list-item').forEach(item => {
+            item.addEventListener('click', async () => {
+              const index = parseInt(item.getAttribute('data-index'));
+              const selected = serverTypes[index];
+              let command = selected.cmd;
+              let port = selected.port;
+              
+              // Close selection modal
+              document.getElementById('customModal').classList.remove('active');
+              
+              // If custom command, ask for details
+              if (!command) {
+                const customHTML = `
+                  <div class="modal-subtitle">Enter your server start command:</div>
+                  <input type="text" class="modal-input" id="customCommand" placeholder="npm run dev" value="npm run dev">
+                  <div class="modal-subtitle" style="margin-top: 16px;">Enter the port:</div>
+                  <input type="number" class="modal-input" id="customPort" placeholder="3000" value="3000">
+                `;
+                
+                await showCustomModal({
+                  icon: '⚙️',
+                  title: 'Custom Server Configuration',
+                  body: customHTML,
+                  buttons: [
+                    { text: 'Cancel', value: null, primary: false },
+                    { 
+                      text: 'Continue', 
+                      value: true, 
+                      primary: true,
+                      onClick: () => {
+                        command = document.getElementById('customCommand').value;
+                        port = document.getElementById('customPort').value;
+                        if (command && port) {
+                          showInstructions(command, port);
+                        }
+                      }
+                    }
+                  ]
+                });
+                
+                // Focus first input
+                setTimeout(() => document.getElementById('customCommand')?.focus(), 100);
+                return;
+              }
+              
+              // Show folder selection and execute command via daemon
+              showFolderSelectionAndExecute(command, port);
+            });
+          });
+        }, 100);
+        
+        async function showFolderSelectionAndExecute(command, port) {
+          // Ask user to enter project folder path
+          const folderHTML = `
+            <div class="modal-subtitle">Enter the path to your project folder:</div>
+            <input type="text" class="modal-input" id="projectPath" placeholder="D:\\Projects\\LawHub\\LawFirmProject" value="">
+            <div class="modal-info" style="margin-top: 12px;">
+              💡 <strong>Tip:</strong> You can paste the folder path from File Explorer.<br>
+              Example: <code style="font-family: monospace; font-size: 11px;">D:\\Projects\\MyApp</code>
+            </div>
+            <div class="modal-subtitle" style="margin-top: 12px;">Command to execute:</div>
+            <input type="text" class="modal-input" id="executeCommand" value="${command}" readonly style="background: #f1f5f9;">
+          `;
+          
+          const result = await showCustomModal({
+            icon: '📁',
+            title: 'Select Project Folder',
+            body: folderHTML,
+            buttons: [
+              { text: 'Cancel', value: null, primary: false },
+              { 
+                text: '🚀 Start Server', 
+                value: true, 
+                primary: true,
+                onClick: async () => {
+                  const projectPath = document.getElementById('projectPath').value;
+                  if (!projectPath) {
+                    alert('Please enter a project folder path');
+                    return;
+                  }
+                  
+                  // Send command to daemon via WebSocket
+                  await executeCommandViaDaemon(command, projectPath, port);
+                }
+              }
+            ]
+          });
+          
+          // Focus input and set default path if available
+          setTimeout(() => {
+            const input = document.getElementById('projectPath');
+            if (input) {
+              // Try to get last used path from storage
+              chrome.storage.local.get(['lastProjectPath'], (data) => {
+                if (data.lastProjectPath) {
+                  input.value = data.lastProjectPath;
+                }
+              });
+              input.focus();
+              input.select();
+            }
+          }, 100);
+        }
+        
+        async function executeCommandViaDaemon(command, cwd, port) {
+          try {
+            // Save path for next time
+            chrome.storage.local.set({ lastProjectPath: cwd });
+            
+            // Show loading state
+            const loadingHTML = `
+              <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 40px; margin-bottom: 16px;">⏳</div>
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">Starting Server...</div>
+                <div style="font-size: 12px; color: #64748b;">
+                  Running: <code style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-family: monospace;">${command}</code><br>
+                  In: <code style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 10px;">${cwd}</code>
+                </div>
+              </div>
+            `;
+            
+            showCustomModal({
+              icon: '🚀',
+              title: 'Executing Command',
+              body: loadingHTML,
+              buttons: []
+            });
+            
+            // Connect to WebSocket bridge
+            const ws = new WebSocket('ws://localhost:5055/ws');
+            
+            ws.onopen = () => {
+              console.log('WebSocket connected to daemon bridge');
+              
+              // Send command execution request
+              const request = {
+                type: 'execute_command',
+                data: {
+                  command: command,
+                  cwd: cwd,
+                  port: port,
+                  timestamp: new Date().toISOString()
+                }
+              };
+              
+              ws.send(JSON.stringify(request));
+              console.log('Command sent to daemon:', request);
+            };
+            
+            ws.onmessage = (event) => {
+              const response = JSON.parse(event.data);
+              console.log('Daemon response:', response);
+              
+              if (response.type === 'command_started') {
+                // Command started successfully
+                setTimeout(() => {
+                  document.getElementById('customModal').classList.remove('active');
+                  
+                  // Show success and open localhost tab
+                  const successHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                      <div style="font-size: 40px; margin-bottom: 16px;">✅</div>
+                      <div style="font-size: 14px; font-weight: 600; color: #059669; margin-bottom: 8px;">Server Started!</div>
+                      <div style="font-size: 12px; color: #64748b; margin-bottom: 16px;">
+                        Your development server is now running on port ${port}
+                      </div>
+                    </div>
+                  `;
+                  
+                  showCustomModal({
+                    icon: '🎉',
+                    title: 'Success',
+                    body: successHTML,
+                    buttons: [
+                      { 
+                        text: `Open localhost:${port}`, 
+                        value: true, 
+                        primary: true,
+                        onClick: () => {
+                          chrome.tabs.create({ url: `http://localhost:${port}` });
+                          window.close();
+                        }
+                      }
+                    ]
+                  });
+                }, 1000);
+                
+                ws.close();
+              } else if (response.type === 'command_error') {
+                // Command failed
+                document.getElementById('customModal').classList.remove('active');
+                
+                const errorHTML = `
+                  <div style="padding: 12px; background: #fee2e2; border-radius: 6px; margin-bottom: 12px;">
+                    <div style="font-weight: 600; color: #991b1b; margin-bottom: 4px;">❌ Error</div>
+                    <div style="font-size: 11px; color: #7f1d1d; font-family: monospace;">${response.error || 'Unknown error'}</div>
+                  </div>
+                  <div class="modal-subtitle">You can try running the command manually:</div>
+                  <ol style="padding-left: 20px; margin: 8px 0; line-height: 1.6; color: #64748b; font-size: 11px;">
+                    <li>Open terminal in: <code style="font-family: monospace;">${cwd}</code></li>
+                    <li>Run: <code style="font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">${command}</code></li>
+                  </ol>
+                `;
+                
+                showCustomModal({
+                  icon: '⚠️',
+                  title: 'Command Failed',
+                  body: errorHTML,
+                  buttons: [
+                    { text: 'Close', value: false, primary: true }
+                  ]
+                });
+                
+                ws.close();
+              }
+            };
+            
+            ws.onerror = (error) => {
+              console.error('WebSocket error:', error);
+              document.getElementById('customModal').classList.remove('active');
+              
+              const errorHTML = `
+                <div class="modal-subtitle">Unable to connect to daemon bridge.</div>
+                <div class="modal-info">
+                  The daemon may have stopped. Try restarting it or run the command manually.
+                </div>
+              `;
+              
+              showCustomModal({
+                icon: '❌',
+                title: 'Connection Error',
+                body: errorHTML,
+                buttons: [
+                  { text: 'Close', value: false, primary: true }
+                ]
+              });
+            };
+            
+            // Timeout after 30 seconds
+            setTimeout(() => {
+              if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+                document.getElementById('customModal').classList.remove('active');
+                
+                showCustomModal({
+                  icon: '⏱️',
+                  title: 'Timeout',
+                  body: '<div class="modal-subtitle">Command execution timed out. The server may still be starting in the background.</div>',
+                  buttons: [
+                    { 
+                      text: `Try opening localhost:${port}`, 
+                      value: true, 
+                      primary: true,
+                      onClick: () => {
+                        chrome.tabs.create({ url: `http://localhost:${port}` });
+                        window.close();
+                      }
+                    }
+                  ]
+                });
+              }
+            }, 30000);
+            
+          } catch (error) {
+            console.error('Error executing command:', error);
+            document.getElementById('customModal').classList.remove('active');
+            
+            showCustomModal({
+              icon: '❌',
+              title: 'Error',
+              body: `<div class="modal-subtitle">Failed to execute command: ${error.message}</div>`,
+              buttons: [
+                { text: 'Close', value: false, primary: true }
+              ]
+            });
+          }
+        }
+      });
+    }
+    
+    // Connect to localhost button
+    const connectBtn = document.getElementById('connectToLocalhost');
+    if (connectBtn) {
+      connectBtn.addEventListener('click', async () => {
+        const portHTML = `
+          <div class="modal-subtitle">Enter the port number for your localhost server:</div>
+          <input type="number" class="modal-input" id="portInput" placeholder="3000" value="3000" autofocus>
+          <div class="modal-info" style="margin-top: 12px;">
+            <strong>Common ports:</strong><br>
+            • 3000 (React/Next.js)<br>
+            • 5173 (Vite)<br>
+            • 8080 (Generic)<br>
+            • 4200 (Angular)<br>
+            • 5000 (Flask)<br>
+            • 8000 (Python HTTP)
+          </div>
+        `;
+        
+        const result = await showCustomModal({
+          icon: '🌐',
+          title: 'Connect to Localhost',
+          body: portHTML,
+          buttons: [
+            { text: 'Cancel', value: null, primary: false },
+            { 
+              text: 'Connect', 
+              value: true, 
+              primary: true,
+              onClick: () => {
+                const port = document.getElementById('portInput').value;
+                if (port && !isNaN(port)) {
+                  const url = `http://localhost:${port}`;
+                  chrome.tabs.create({ url });
+                  window.close();
+                } else {
+                  alert('Please enter a valid port number');
+                }
+              }
+            }
+          ]
+        });
+        
+        // Focus input and handle Enter key
+        setTimeout(() => {
+          const input = document.getElementById('portInput');
+          if (input) {
+            input.focus();
+            input.select();
+            input.addEventListener('keypress', (e) => {
+              if (e.key === 'Enter') {
+                document.querySelector('.modal-btn-primary').click();
+              }
+            });
+          }
+        }, 100);
+      });
+    }
+  }
+
   // TODO: Move popup styles to popup.css for better performance and caching
   // (Styles for .localhost-link, .title, .short)
 
@@ -57,10 +585,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const localhostTabs = allTabs.filter(t => isLocalDevelopment(t.url));
 
     if (localhostTabs.length > 0) {
-      // Show clickable links to localhost tabs
+      // Show clickable links to localhost tabs + option to start new server
       let html = '<div style="display: flex; align-items: center; gap: 12px;"><div class="status-icon">⚠️</div><div>Not on localhost</div></div>';
-      html += '<div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click to switch to localhost tab:</div>';
-      html += '<div style="max-height: 150px; overflow-y: auto; margin-top: 6px;">';
+      html += '<div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click to switch to existing tab:</div>';
+      html += '<div style="max-height: 120px; overflow-y: auto; margin-top: 6px;">';
 
       localhostTabs.forEach((localhostTab, index) => {
         const tabTitle = localhostTab.title.substring(0, 40) + (localhostTab.title.length > 40 ? '...' : '');
@@ -74,59 +602,199 @@ document.addEventListener('DOMContentLoaded', async () => {
           border: 1px solid rgba(59, 130, 246, 0.3);
           border-radius: 6px;
           cursor: pointer;
+          transition: all 0.2s ease;
         ">
-          <div class="title">🌐 ${tabTitle}</div>
-          <div class="short">${shortUrl}</div>
+          <div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 2px;">🌐 ${tabTitle}</div>
+          <div style="font-size: 11px; color: #64748b; font-family: monospace;">${shortUrl}</div>
         </div>`;
       });
 
       html += '</div>';
+      
+      // Add "or start new server" section
+      html += '<div style="font-size: 10px; color: #94a3b8; margin-top: 8px; text-align: center;">OR</div>';
+      html += `
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button id="startDevServer" class="server-btn-start" style="
+            flex: 1;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 3px 10px rgba(139, 92, 246, 0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          ">
+            <span>⚡</span> Start New
+          </button>
+          
+          <button id="connectToLocalhost" class="server-btn-connect" style="
+            flex: 1;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          ">
+            <span>🌐</span> Connect
+          </button>
+        </div>
+      `;
 
       statusDiv.innerHTML = html;
+      statusDiv.className = 'status-card inactive';
 
       // Add click handlers to switch to localhost tabs
       setTimeout(() => {
         document.querySelectorAll('.localhost-link').forEach(link => {
+          // Add hover effect
+          link.addEventListener('mouseenter', function() {
+            this.style.background = 'rgba(59, 130, 246, 0.2)';
+          });
+          link.addEventListener('mouseleave', function() {
+            this.style.background = 'rgba(59, 130, 246, 0.1)';
+          });
+          
+          // Add click handler
           link.addEventListener('click', async () => {
             const tabId = parseInt(link.getAttribute('data-tab-id'));
             const windowId = parseInt(link.getAttribute('data-window-id'));
             await chrome.windows.update(windowId, { focused: true });
             await chrome.tabs.update(tabId, { active: true });
+            window.close(); // Close popup after switching
           });
         });
+        
+        // Add hover effects to server buttons
+        document.querySelectorAll('.server-btn-start, .server-btn-connect').forEach(btn => {
+          btn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            if (this.classList.contains('server-btn-start')) {
+              this.style.boxShadow = '0 5px 14px rgba(139, 92, 246, 0.4)';
+            } else {
+              this.style.boxShadow = '0 5px 14px rgba(16, 185, 129, 0.4)';
+            }
+          });
+          btn.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            if (this.classList.contains('server-btn-start')) {
+              this.style.boxShadow = '0 3px 10px rgba(139, 92, 246, 0.3)';
+            } else {
+              this.style.boxShadow = '0 3px 10px rgba(16, 185, 129, 0.3)';
+            }
+          });
+        });
+        
+        // Add server launcher buttons (same logic as no-localhost case)
+        addServerLauncherHandlers();
       }, 100);
     } else {
-      // Allow user to configure localhost setup
+      // Allow user to start or connect to localhost
       statusDiv.innerHTML = `
         <div style="display: flex; align-items: center; gap: 12px;">
           <div class="status-icon">⚠️</div>
-          <div>Not on localhost</div>
+          <div>No localhost server detected</div>
         </div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Configure a localhost environment:</div>
-        <button id="configureLocalhost" style="
-          margin-top: 8px;
-          padding: 8px 12px;
-          background: rgba(16, 185, 129, 0.2);
-          border: 1px solid rgba(16, 185, 129, 0.4);
-          border-radius: 6px;
-          color: #10b981;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 600;
-        ">Set Up Localhost</button>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Start a dev server or connect to existing one:</div>
+        
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <button id="startDevServer" class="server-btn-start" style="
+            flex: 1;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          ">
+            <span>⚡</span> Start Server
+          </button>
+          
+          <button id="connectToLocalhost" class="server-btn-connect" style="
+            flex: 1;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          ">
+            <span>🌐</span> Connect
+          </button>
+        </div>
+        
+        <div style="font-size: 10px; color: #94a3b8; margin-top: 8px; text-align: center;">
+          Start: Launch dev server in terminal • Connect: Open existing server
+        </div>
       `;
+      statusDiv.className = 'status-card inactive';
 
-      // Add click handler for localhost setup
+      // Add click handlers
       setTimeout(() => {
-        document.getElementById('configureLocalhost').addEventListener('click', () => {
-          const port = prompt('Enter the port for localhost (default: 3000):', '3000');
-          if (port) {
-            const url = `http://localhost:${port}`;
-            chrome.tabs.create({ url });
-          }
+        // Add hover effects to server buttons
+        document.querySelectorAll('.server-btn-start, .server-btn-connect').forEach(btn => {
+          btn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            if (this.classList.contains('server-btn-start')) {
+              this.style.boxShadow = '0 6px 16px rgba(139, 92, 246, 0.4)';
+            } else {
+              this.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.4)';
+            }
+          });
+          btn.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            if (this.classList.contains('server-btn-start')) {
+              this.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3)';
+            } else {
+              this.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+            }
+          });
         });
+        
+        addServerLauncherHandlers();
       }, 100);
     }
+    
+    // Disable buttons when not on localhost
+    toggleBtn.disabled = true;
+    openGuiBtn.disabled = true;
+    toggleBtn.style.opacity = '0.5';
+    openGuiBtn.style.opacity = '0.5';
+    toggleBtn.style.cursor = 'not-allowed';
+    openGuiBtn.style.cursor = 'not-allowed';
+    return; // Exit early to prevent normal UI update
   }
 
   // Check if tool is active
