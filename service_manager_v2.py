@@ -6,6 +6,7 @@ Uses selector-based TCP server for minimal CPU usage.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
