@@ -207,6 +207,75 @@ async def websocket_endpoint(websocket: WebSocket):
                     "timestamp": datetime.now().isoformat()
                 }, websocket)
             
+            elif message_type == "execute_command":
+                # Execute command in specified directory
+                print(f"🚀 Command execution request received")
+                command_data = data.get('data', {})
+                command = command_data.get('command', '')
+                cwd = command_data.get('cwd', '')
+                port = command_data.get('port', 3000)
+                
+                print(f"   Command: {command}")
+                print(f"   Working Directory: {cwd}")
+                print(f"   Expected Port: {port}")
+                
+                try:
+                    import subprocess
+                    import platform
+                    
+                    is_windows = platform.system() == 'Windows'
+                    
+                    if is_windows:
+                        # Windows: Start detached process without visible window
+                        # Use CREATE_NEW_CONSOLE + DETACHED_PROCESS flags
+                        startupinfo = subprocess.STARTUPINFO()
+                        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                        startupinfo.wShowWindow = subprocess.SW_HIDE
+                        
+                        # Start detached process (no command window)
+                        process = subprocess.Popen(
+                            command,
+                            cwd=cwd,
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            stdin=subprocess.PIPE,
+                            startupinfo=startupinfo,
+                            creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS,
+                            text=True
+                        )
+                    else:
+                        # Linux/macOS: Use nohup for detached background process
+                        process = subprocess.Popen(
+                            command,
+                            cwd=cwd,
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            stdin=subprocess.PIPE,
+                            preexec_fn=os.setpgrp if hasattr(os, 'setpgrp') else None,
+                            text=True
+                        )
+                    
+                    print(f"✅ Background process started with PID: {process.pid}")
+                    print(f"   No command window will appear - runs silently in background")
+                    
+                    await manager.send_personal_message({
+                        "type": "command_started",
+                        "pid": process.pid,
+                        "port": port,
+                        "message": "Server started in background (no command window)",
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+                    
+                except Exception as e:
+                    print(f"❌ Command execution failed: {e}")
+                    await manager.send_personal_message({
+                        "type": "command_error",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+            
             elif message_type == "broadcast":
                 # Broadcast to all connected clients
                 await manager.broadcast({
