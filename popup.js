@@ -132,14 +132,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Detect platform
     const platform = navigator.platform.toLowerCase();
     let platformName = 'Windows';
-    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.1.0/HighlightAssist-v1.1.0-win64.zip';
+    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-v1.2.0-win64.zip';
     
     if (platform.includes('mac')) {
       platformName = 'macOS';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.1.0/HighlightAssist-v1.1.0-darwin.tar.gz';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-v1.2.0-darwin.tar.gz';
     } else if (platform.includes('linux')) {
       platformName = 'Linux';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.1.0/HighlightAssist-v1.1.0-linux.tar.gz';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-v1.2.0-linux.tar.gz';
     }
     
     const installHTML = `
@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <ul style="margin: 0; padding-left: 20px; color: #78350f; line-height: 1.6;">
           <li>Automatically start dev servers from the extension</li>
           <li>Manage localhost environments without terminal</li>
-          <li>Background service with system tray icon</li>
+          <li>Background service with purple gradient tray icon</li>
           <li>Auto-starts with your OS</li>
         </ul>
       </div>
