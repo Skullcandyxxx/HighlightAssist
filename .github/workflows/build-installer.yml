@@ -20,10 +20,35 @@ jobs:
     
     - name: Create installer images (placeholder)
       run: |
-        # Create placeholder images for wizard
-        New-Item -ItemType Directory -Force -Path . | Out-Null
-        # You can replace these with actual images later
-        echo "Placeholder for wizard images" | Out-Null
+        # Create simple BMP placeholder images for the installer wizard so ISCC won't fail when packaging
+        Write-Host "Generating placeholder wizard images..."
+        Add-Type -AssemblyName System.Drawing
+        $root = Get-Location
+        $imgPath = Join-Path $root 'installer-wizard-image.bmp'
+        $imgSmallPath = Join-Path $root 'installer-wizard-small.bmp'
+
+        # Large image (164x314)
+        $bmp = New-Object System.Drawing.Bitmap 164,314
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.Clear([System.Drawing.Color]::FromArgb(124,58,237))
+        # Draw a simple title to make it non-empty
+        try {
+          $font = New-Object System.Drawing.Font('Segoe UI',18)
+          $brush = [System.Drawing.Brushes]::White
+          $g.DrawString('HighlightAssist', $font, $brush, 8, 130)
+        } catch { }
+        $bmp.Save($imgPath, [System.Drawing.Imaging.ImageFormat]::Bmp)
+        $g.Dispose()
+        $bmp.Dispose()
+
+        # Small image (55x58)
+        $bmp2 = New-Object System.Drawing.Bitmap 55,58
+        $g2 = [System.Drawing.Graphics]::FromImage($bmp2)
+        $g2.Clear([System.Drawing.Color]::FromArgb(16,185,129))
+        $bmp2.Save($imgSmallPath, [System.Drawing.Imaging.ImageFormat]::Bmp)
+        $g2.Dispose()
+        $bmp2.Dispose()
+        Write-Host "Placeholder images created: $imgPath, $imgSmallPath"
     
     - name: Build installer
       run: |
