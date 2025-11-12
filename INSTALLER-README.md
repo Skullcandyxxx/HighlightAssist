@@ -46,6 +46,11 @@ The installer will be created in `installers/HighlightAssist-Setup-vX.Y.Z.exe` (
 - Proper uninstall via Windows Control Panel
 - Chrome/Edge native host registration for the browser extension
 
+✅ **Tray & Notifications (optional)**
+- The native host includes an optional system tray icon and desktop notifications (Start/Stop/Status) when platform support is available.
+- The GitHub Actions build bundles tray/notification libraries so the distributed native host executable includes pystray, Pillow (PIL) and plyer by default. If the installer is built locally, install `requirements.txt` before building the native host to include these features.
+- To customize the tray icon, place a PNG at `assets/icon-128.png` in the repository root before building.
+
 ✅ **License Display**
 - Shows MIT license during installation
 - Users must accept before proceeding

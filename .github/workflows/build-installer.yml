@@ -91,8 +91,10 @@ jobs:
     - name: Build native messaging host
       run: |
         python -m pip install --upgrade pip
+        # Install runtime requirements so the PyInstaller build bundles optional tray/notify libs
+        pip install -r requirements.txt
         pip install pyinstaller
-        pyinstaller .\native_host\bridge_host.py --onefile --name highlightassist-native-host --distpath native_host\dist --workpath native_host\build --clean
+        pyinstaller .\native_host\bridge_host.py --onefile --name highlightassist-native-host --distpath native_host\dist --workpath native_host\build --clean --hidden-import=pystray --hidden-import=PIL --hidden-import=plyer --add-data "assets\\icon-128.png;assets"
         if (-Not (Test-Path -Path native_host\dist\highlightassist-native-host.exe)) {
           throw "Native host executable not found after build."
         }
