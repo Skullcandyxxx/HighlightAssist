@@ -1,6 +1,31 @@
 // Background service worker
 console.log('[Highlight Assist] Background service worker initialized');
 
+const NATIVE_HOST_NAME = 'com.highlightassist.bridge';
+
+function sendNativeBridgeCommand(command, payload = {}) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendNativeMessage(
+      NATIVE_HOST_NAME,
+      { command, payload },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[Highlight Assist] Native host error:', chrome.runtime.lastError.message);
+          resolve({
+            success: false,
+            error: chrome.runtime.lastError.message
+          });
+          return;
+        }
+        resolve({
+          success: true,
+          response: response || {}
+        });
+      }
+    );
+  });
+}
+
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     console.log('[Highlight Assist] Extension installed - Welcome!');
@@ -73,5 +98,20 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
       color: isActive ? '#10b981' : '#64748b'
     });
   }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || !message.action) {
+    return false;
+  }
+
+  if (message.action === 'bridgeNativeCommand') {
+    const command = message.command || 'bridge_status';
+    sendNativeBridgeCommand(command, message.payload || {})
+      .then(sendResponse);
+    return true; // keep channel open for async response
+  }
+
+  return false;
 });
 
