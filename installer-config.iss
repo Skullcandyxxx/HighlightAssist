@@ -45,7 +45,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart"; Description: "Start HighlightAssist Bridge automatically when Windows starts"; GroupDescription: "Additional options:"; Flags: checked
+Name: "autostart"; Description: "Start HighlightAssist Bridge automatically when Windows starts"; GroupDescription: "Additional options:"
 
 [Files]
 Source: "bridge.py"; DestDir: "{app}"; Flags: ignoreversion
