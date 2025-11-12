@@ -34,6 +34,7 @@ class ServiceManager:
         self.bridge_process = None
         self.running = True
         self._tray_icon = None
+        self.connected_clients = set()
         
     def is_bridge_running(self):
         """Check if bridge is already running on port 5055"""
@@ -110,16 +111,28 @@ class ServiceManager:
         """Create and run a system tray icon with a minimal menu if pystray is available."""
         if not HAS_TRAY:
             return
-
-        def on_start(icon, item):
-            self.start_bridge()
-
         def on_stop(icon, item):
             self.stop_bridge()
 
-        def on_status(icon, item):
+        def on_manager(icon, item):
+            # Show manager status and open logs
             running = self.is_bridge_running()
             self._notify('HighlightAssist', f'Bridge running: {running}')
+            self._open_logs()
+
+        def on_clients(icon, item):
+            # Show connected clients via notification (or open a small temp file)
+            if not self.connected_clients:
+                self._notify('HighlightAssist', 'No active clients')
+                return
+            clients = '\n'.join([f'{c[0]}:{c[1]}' for c in self.connected_clients])
+            # If message too long, truncate
+            if len(clients) > 400:
+                clients = clients[:400] + '\n…'
+            self._notify('HighlightAssist', f'Clients:\n{clients}')
+
+        def on_logs(icon, item):
+            self._open_logs()
 
         def on_quit(icon, item):
             self.running = False
@@ -131,20 +144,63 @@ class ServiceManager:
             icon.stop()
 
         icon_image = self._generate_icon((64, 64)) or Image.new('RGBA', (64, 64), (59,130,246,255))
-        menu = pystray.Menu(
-            pystray.MenuItem('Start Bridge', on_start),
-            pystray.MenuItem('Stop Bridge', on_stop),
-            pystray.MenuItem('Status', on_status),
-            pystray.MenuItem('Quit', on_quit)
-        )
 
+        def connections_label():
+            if not self.connected_clients:
+                return 'No connections'
+            return f'{len(self.connected_clients)} connection(s)'
+
+        def build_menu():
+            return pystray.Menu(
+                pystray.MenuItem(lambda: connections_label(), None, enabled=False),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem('Stop Server', on_stop),
+                pystray.MenuItem('Manager...', on_manager),
+                pystray.MenuItem('Client...', on_clients),
+                pystray.MenuItem('Logs...', on_logs),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem('Exit', on_quit)
+            )
+
+        menu = build_menu()
         self._tray_icon = pystray.Icon('highlightassist', icon_image, 'HighlightAssist', menu)
         # Run the icon (this blocks until stopped) in a background thread
         threading.Thread(target=self._tray_icon.run, daemon=True).start()
+
+        # store builder so we can refresh later
+        self._tray_menu_builder = build_menu
+
+    def _update_tray_menu(self) -> None:
+        """Rebuild tray menu to reflect updated connection count."""
+        if not HAS_TRAY or not self._tray_icon:
+            return
+        try:
+            new_menu = self._tray_menu_builder()
+            # pystray may accept setting menu directly
+            self._tray_icon.menu = new_menu
+            # call update_menu if available
+            if hasattr(self._tray_icon, 'update_menu'):
+                try:
+                    self._tray_icon.update_menu()
+                except Exception:
+                    pass
+        except Exception:
+            pass
     
-    def handle_client(self, client_socket):
+    def handle_client(self, client_socket, addr=None):
         """Handle commands from extension"""
         try:
+            # record client address
+            try:
+                if addr:
+                    self.connected_clients.add((addr[0], addr[1]))
+                else:
+                    peer = client_socket.getpeername()
+                    self.connected_clients.add((peer[0], peer[1]))
+                # update tray menu
+                self._update_tray_menu()
+            except Exception:
+                pass
             data = client_socket.recv(1024).decode('utf-8')
             command = json.loads(data)
             
@@ -166,6 +222,32 @@ class ServiceManager:
             client_socket.send(json.dumps(error_response).encode('utf-8'))
         finally:
             client_socket.close()
+            # remove client from active set
+            try:
+                if addr:
+                    self.connected_clients.discard((addr[0], addr[1]))
+                else:
+                    peer = client_socket.getpeername()
+                    self.connected_clients.discard((peer[0], peer[1]))
+                self._update_tray_menu()
+            except Exception:
+                pass
+
+    def _open_logs(self):
+        """Open the log file using the platform default application."""
+        try:
+            log_path = str(Path(os.environ.get('LOCALAPPDATA', Path('.'))) / 'HighlightAssist' / 'logs' / 'native-host.log')
+            if os.path.exists(log_path):
+                if sys.platform.startswith('win'):
+                    os.startfile(log_path)
+                elif sys.platform.startswith('darwin'):
+                    subprocess.Popen(['open', log_path])
+                else:
+                    subprocess.Popen(['xdg-open', log_path])
+            else:
+                self._notify('HighlightAssist', f'Log file not found: {log_path}')
+        except Exception as e:
+            print('Failed opening logs:', e)
     
     def run(self):
         """Run the service manager"""
