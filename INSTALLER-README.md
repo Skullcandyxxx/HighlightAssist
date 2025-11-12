@@ -115,3 +115,18 @@ The installer includes:
 - Inno Setup overhead (~400KB)
 
 Total size: ~500KB (dependencies downloaded during installation)
+
+## Manual native host registration (developer fail-safes)
+
+If the installer cannot register the native messaging manifest automatically (or you are running the native host from source), use the helper scripts in `native_host/helpers/` to install the manifest for your browser profile.
+
+- Windows PowerShell helper:
+	- `native_host\helpers\register_native_host_windows.ps1 -HostExePath 'C:\full\path\to\highlightassist-native-host.exe' -ExtensionId '<your-extension-id>'`
+- Linux helper:
+	- `native_host/helpers/register_native_host_linux.sh /full/path/to/highlightassist-native-host '<your-extension-id>'`
+- macOS helper:
+	- `native_host/helpers/register_native_host_macos.sh /full/path/to/highlightassist-native-host '<your-extension-id>'`
+
+These scripts use the manifest template `native_host/manifests/com.highlightassist.bridge.json.tpl` and will write manifest files into the per-user NativeMessagingHosts directories for Chrome/Edge. For Firefox, follow the Firefox native messaging docs to install manifests per profile.
+
+Note: the extension ID is required for the manifest's `allowed_origins` entry. You can find it in the extension's `manifest.json` or in `installer-config.iss` where `NativeHostExtensionId` is defined.
