@@ -47,6 +47,24 @@
     
     return errorInfo;
   }
+
+  // Poll native host for running workspaces and cache them in state
+  function refreshNativeWorkspaces() {
+    // Initialize container
+    if (!state) state = state || {};
+    if (!state.nativeWorkspaces) state.nativeWorkspaces = [];
+    callNativeHost('list_workspaces', {}, 4000).then(function(resp) {
+      if (resp && resp.status === 'ok') {
+        state.nativeWorkspaces = Array.isArray(resp.workspaces) ? resp.workspaces : [];
+      } else {
+        state.nativeWorkspaces = [];
+      }
+      // Re-render projects to reflect running status
+      callStorage('get', 'ha_projects').then(function(value) { renderProjects(Array.isArray(value) ? value : []); }).catch(function(){ renderProjects([]); });
+    }).catch(function() {
+      state.nativeWorkspaces = [];
+    });
+  }
   
   // Global error catcher
   window.addEventListener('error', function(event) {
@@ -2702,7 +2720,7 @@
       card.style.cssText = 'padding:8px; margin-bottom:6px; background: rgba(255,255,255,0.02); border:1px solid rgba(0,0,0,0.04); border-radius:6px; display:flex; justify-content:space-between; align-items:center;';
       var info = document.createElement('div');
       info.innerHTML = '<div style="font-size:11px; font-weight:600; color:#c4b5fd;">' + escapeHtml(p.name || ('Project ' + (idx+1))) + '</div>' + '<div style="font-size:10px; color:#94a3b8;">' + escapeHtml(p.cwd || '') + '</div>' + '<div style="font-size:10px; color:#94a3b8;">' + escapeHtml(p.command || '') + '</div>';
-      var actions = document.createElement('div');
+  var actions = document.createElement('div');
       actions.style.cssText = 'display:flex; gap:6px;';
       var startBtn = document.createElement('button');
       startBtn.textContent = '▶ Start';
@@ -2718,7 +2736,48 @@
       delBtn.textContent = '🗑';
       delBtn.style.cssText = 'padding:6px; background:rgba(255,0,0,0.02); border:1px solid rgba(255,0,0,0.05); border-radius:6px; color:#f87171; cursor:pointer;';
       delBtn.addEventListener('click', function() { deleteProject(projects, idx); });
+
+      // Show stop button if this project appears to be running according to native host
+      var isRunning = false;
+      try {
+        if (Array.isArray(state.nativeWorkspaces) && state.nativeWorkspaces.length) {
+          isRunning = state.nativeWorkspaces.some(function(w) {
+            // Match by cwd or by command substring
+            try {
+              if (w.cwd && p.cwd && w.cwd === p.cwd) return true;
+              if (w.command && p.command && w.command.indexOf(p.command) !== -1) return true;
+            } catch (e) {}
+            return false;
+          });
+        }
+      } catch (e) { isRunning = false; }
+
+      var stopBtn = document.createElement('button');
+      stopBtn.textContent = '■ Stop';
+      stopBtn.style.cssText = 'padding:6px; background:linear-gradient(135deg,#ef4444,#dc2626); color:white; border-radius:6px; border:none; cursor:pointer; font-weight:700; display:' + (isRunning ? 'inline-flex' : 'none');
+      stopBtn.addEventListener('click', function() {
+        // UI feedback: disable button and show stopping state
+        var originalText = stopBtn.textContent;
+        stopBtn.disabled = true;
+        stopBtn.textContent = 'Stopping…';
+        stopProject(p).then(function() {
+          loadProjectsList();
+          refreshNativeWorkspaces();
+        }).catch(function(err){
+          showError('Stop failed: '+(err && err.message));
+        }).finally(function() {
+          // Restore button state; if still running hide the button
+          try {
+            stopBtn.disabled = false;
+            stopBtn.textContent = originalText;
+            // re-render projects to reflect current state
+            callStorage('get', 'ha_projects').then(function(value) { renderProjects(Array.isArray(value) ? value : []); }).catch(function(){ renderProjects([]); });
+          } catch (e) {}
+        });
+      });
+
       actions.appendChild(startBtn);
+      actions.appendChild(stopBtn);
       actions.appendChild(editBtn);
       actions.appendChild(delBtn);
       card.appendChild(info);
@@ -2779,6 +2838,63 @@
       }
     }).catch(function(err) {
       showError('Native host error: ' + err.message);
+    });
+  }
+
+  function stopProject(p) {
+    // Return a Promise so callers can chain refreshes
+    return new Promise(function(resolve, reject) {
+      if (!p) return reject(new Error('Invalid project'));
+
+      // Ensure we have a recent list of native workspaces
+      var ensureList = Promise.resolve(state.nativeWorkspaces && state.nativeWorkspaces.length ? state.nativeWorkspaces : null);
+      // If no cached list, ask native host for current workspaces
+      if (!state.nativeWorkspaces || !state.nativeWorkspaces.length) {
+        ensureList = callNativeHost('list_workspaces', {}, 4000).then(function(resp) {
+          return Array.isArray(resp.workspaces) ? resp.workspaces : [];
+        }).catch(function() { return []; });
+      }
+
+      ensureList.then(function(list) {
+        var found = null;
+        try {
+          list = Array.isArray(list) ? list : [];
+          for (var i = 0; i < list.length; i++) {
+            var w = list[i];
+            if (!w) continue;
+            try {
+              if (w.cwd && p.cwd && w.cwd === p.cwd) { found = w; break; }
+              if (w.command && p.command && w.command.indexOf(p.command) !== -1) { found = w; break; }
+            } catch (e) {}
+          }
+        } catch (e) { found = null; }
+
+        if (!found) {
+          return reject(new Error('No running workspace found for this project'));
+        }
+
+        var payload = {};
+        if (found.id) payload.id = found.id;
+        else if (found.pid) payload.pid = found.pid;
+
+        callNativeHost('kill_workspace', payload, 5000).then(function(resp) {
+          if (resp && resp.status === 'stopped') {
+            showSuccess('Project stopped (pid: ' + resp.pid + ')');
+            // Update local cached list and UI
+            refreshNativeWorkspaces();
+            resolve(resp);
+          } else {
+            var err = resp && resp.error ? resp.error : JSON.stringify(resp);
+            showError('Failed to stop: ' + err);
+            reject(new Error(err));
+          }
+        }).catch(function(err) {
+          showError('Native host error: ' + (err && err.message ? err.message : err));
+          reject(err);
+        });
+      }).catch(function(err) {
+        reject(err);
+      });
     });
   }
 
