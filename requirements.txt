@@ -1,6 +1,11 @@
-﻿fastapi
+﻿
+fastapi
 uvicorn[standard]
 websockets
 pystray
 Pillow
 plyer
+# Optional notification backends for native notifications
+win10toast; platform_system == "Windows"
+notify2; platform_system == "Linux"
+pync; platform_system == "Darwin"

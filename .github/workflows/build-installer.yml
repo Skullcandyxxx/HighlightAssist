@@ -38,6 +38,16 @@ jobs:
             pyinstaller native_host/bridge_host.py --onefile --name highlightassist-native-host --distpath native_host/dist --workpath native_host/build --clean --hidden-import=pystray --hidden-import=PIL --hidden-import=plyer --add-data "assets/icon-128.png:assets"
           fi
 
+      - name: Build HighlightAssist Service Manager
+        run: |
+          pyinstaller --noconfirm --clean pyinstaller.spec
+
+      - name: Archive HighlightAssist Service Manager
+        uses: actions/upload-artifact@v3
+        with:
+          name: HighlightAssist-Service-Manager-${{ matrix.os }}
+          path: dist/HighlightAssist-Service-Manager
+
       - name: Package platform-specific installer (Windows only)
         if: runner.os == 'Windows'
         run: |

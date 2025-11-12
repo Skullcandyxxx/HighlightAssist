@@ -48,34 +48,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check if on localhost
   const isLocalhost = isLocalDevelopment(tab.url);
 
-  // Inject popup CSS for hover effects (CSP-safe replacement for inline handlers)
-  (function injectPopupStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-      .localhost-link { transition: all 0.2s; }
-      .localhost-link:hover { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.5); }
-      .localhost-link .title { font-size: 11px; font-weight: 600; color: #60a5fa; margin-bottom: 2px; }
-      .localhost-link .short { font-size: 9px; color: #94a3b8; }
-    `;
-    document.head.appendChild(style);
-  })();
+  // TODO: Move popup styles to popup.css for better performance and caching
+  // (Styles for .localhost-link, .title, .short)
 
   if (!isLocalhost) {
     // Find all localhost tabs
     const allTabs = await chrome.tabs.query({});
     const localhostTabs = allTabs.filter(t => isLocalDevelopment(t.url));
-    
+
     if (localhostTabs.length > 0) {
       // Show clickable links to localhost tabs
       let html = '<div style="display: flex; align-items: center; gap: 12px;"><div class="status-icon">⚠️</div><div>Not on localhost</div></div>';
       html += '<div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click to switch to localhost tab:</div>';
       html += '<div style="max-height: 150px; overflow-y: auto; margin-top: 6px;">';
-      
+
       localhostTabs.forEach((localhostTab, index) => {
         const tabTitle = localhostTab.title.substring(0, 40) + (localhostTab.title.length > 40 ? '...' : '');
         const tabUrl = new URL(localhostTab.url);
         const shortUrl = tabUrl.hostname + ':' + (tabUrl.port || '80') + tabUrl.pathname.substring(0, 20);
-        
+
         html += `<div class="localhost-link" data-tab-id="${localhostTab.id}" data-window-id="${localhostTab.windowId}" style="
           padding: 8px;
           margin: 4px 0;
@@ -88,69 +79,54 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="short">${shortUrl}</div>
         </div>`;
       });
-      
+
       html += '</div>';
-      
+
       statusDiv.innerHTML = html;
-      
+
       // Add click handlers to switch to localhost tabs
       setTimeout(() => {
         document.querySelectorAll('.localhost-link').forEach(link => {
           link.addEventListener('click', async () => {
             const tabId = parseInt(link.getAttribute('data-tab-id'));
             const windowId = parseInt(link.getAttribute('data-window-id'));
-
-            try {
-              if (!Number.isNaN(windowId)) {
-                await chrome.windows.update(windowId, { focused: true });
-              }
-              await chrome.tabs.update(tabId, { active: true });
-              window.close(); // Close popup after switching
-            } catch (err) {
-              console.error('[Highlight Assist] Failed to switch tabs:', err);
-              showError('Could not switch to localhost tab (need tabs permission?).');
-            }
+            await chrome.windows.update(windowId, { focused: true });
+            await chrome.tabs.update(tabId, { active: true });
           });
         });
       }, 100);
     } else {
-      // No localhost tabs found - show message to open one
-      const wrapper = document.createElement('div');
-      const statusRow = document.createElement('div');
-      statusRow.style.cssText = 'display: flex; align-items: center; gap: 12px;';
-      statusRow.innerHTML = '<div class="status-icon">⚠️</div><div>Not on localhost</div>';
-      
-      const message = document.createElement('div');
-      message.style.cssText = 'font-size: 11px; color: #94a3b8; margin-top: 8px;';
-      message.textContent = 'No localhost tabs found';
-      
-      const openBtn = document.createElement('button');
-      openBtn.id = 'openLocalhostBtn';
-      openBtn.style.cssText = 'margin-top: 8px; padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; color: #60a5fa; cursor: pointer; font-size: 11px; width: 100%;';
-      openBtn.textContent = '🌐 Open localhost:3000';
-      
-      wrapper.appendChild(statusRow);
-      wrapper.appendChild(message);
-      wrapper.appendChild(openBtn);
-      
-      statusDiv.innerHTML = '';
-      statusDiv.appendChild(wrapper);
-      
-      // Add handler to open localhost in new tab
-      openBtn.addEventListener('click', async () => {
-        await chrome.tabs.create({ url: 'http://localhost:3000' });
-        window.close();
-      });
+      // Allow user to configure localhost setup
+      statusDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="status-icon">⚠️</div>
+          <div>Not on localhost</div>
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Configure a localhost environment:</div>
+        <button id="configureLocalhost" style="
+          margin-top: 8px;
+          padding: 8px 12px;
+          background: rgba(16, 185, 129, 0.2);
+          border: 1px solid rgba(16, 185, 129, 0.4);
+          border-radius: 6px;
+          color: #10b981;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+        ">Set Up Localhost</button>
+      `;
+
+      // Add click handler for localhost setup
+      setTimeout(() => {
+        document.getElementById('configureLocalhost').addEventListener('click', () => {
+          const port = prompt('Enter the port for localhost (default: 3000):', '3000');
+          if (port) {
+            const url = `http://localhost:${port}`;
+            chrome.tabs.create({ url });
+          }
+        });
+      }, 100);
     }
-    
-    statusDiv.className = 'status-card inactive';
-    toggleBtn.disabled = true;
-    toggleBtn.textContent = '❌ Only works on localhost';
-    toggleBtn.style.opacity = '0.5';
-    toggleBtn.style.cursor = 'not-allowed';
-    openGuiBtn.disabled = true;
-    openGuiBtn.style.opacity = '0.5';
-    return;
   }
 
   // Check if tool is active
@@ -159,20 +135,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateUI(isActive);
   });
 
-  // Toggle inspection button click
-  toggleBtn.addEventListener('click', async () => {
+  // Debounce helper
+  function debounce(fn, delay) {
+    let timer = null;
+    return function(...args) {
+      if (timer) return;
+      timer = setTimeout(() => {
+        fn.apply(this, args);
+        timer = null;
+      }, delay);
+    };
+  }
+
+  // Toggle inspection button click (debounced)
+  toggleBtn.addEventListener('click', debounce(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    // Add loading state
     toggleBtn.disabled = true;
     toggleBtn.innerHTML = '<span>⏳</span> Loading...';
-    
     try {
-      // Send message to toggle inspection mode
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        action: 'toggleInspecting'
-      });
-      
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'toggleInspecting' });
       if (response && response.success) {
         const newState = response.isInspecting;
         chrome.storage.local.set({ highlightAssistActive: newState });
@@ -184,51 +165,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       toggleBtn.disabled = false;
     }
-  });
+  }, 400));
 
-  // Open GUI Panel button
-  openGuiBtn.addEventListener('click', async () => {
+  // Open GUI Panel button (debounced)
+  openGuiBtn.addEventListener('click', debounce(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
     try {
-      await chrome.tabs.sendMessage(tab.id, {
-        action: 'showGui'
-      });
-      
-      // Close popup after opening GUI
+      await chrome.tabs.sendMessage(tab.id, { action: 'showGui' });
       window.close();
     } catch (error) {
       console.error('Failed to open GUI:', error);
       showError('Extension not loaded. Please refresh the page.');
     }
-  });
+  }, 400));
 
-  // Export Logs button
-  document.getElementById('exportLogsBtn').addEventListener('click', async () => {
+  // Export Logs button (debounced)
+  document.getElementById('exportLogsBtn').addEventListener('click', debounce(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
     const format = prompt('Export format (json/text/csv):', 'json');
     if (!format) return;
-    
     try {
-      await chrome.tabs.sendMessage(tab.id, {
-        action: 'exportLogs',
-        format: format
-      });
-      
+      await chrome.tabs.sendMessage(tab.id, { action: 'exportLogs', format });
       showSuccess('Logs exported successfully!');
     } catch (error) {
       console.error('Failed to export logs:', error);
-      
-      // Fallback: Export from storage directly
       try {
         const result = await chrome.storage.local.get(['highlightAssist_logs']);
         const logs = result.highlightAssist_logs || [];
-        
         let content;
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         let filename;
-        
         if (format === 'json') {
           content = JSON.stringify(logs, null, 2);
           filename = `highlightassist-logs-${timestamp}.json`;
@@ -245,61 +211,55 @@ document.addEventListener('DOMContentLoaded', async () => {
             ).join('\n');
           filename = `highlightassist-logs-${timestamp}.csv`;
         }
-        
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
         a.click();
-        
         URL.revokeObjectURL(url);
-        
         showSuccess(`Logs exported: ${filename}`);
       } catch (exportError) {
         showError('Failed to export logs: ' + exportError.message);
       }
     }
-  });
+  }, 400));
 
-  // Settings button
-  settingsBtn.addEventListener('click', async () => {
-    // Show settings including log stats
-    const result = await chrome.storage.local.get([
-      'highlightAssist_logs',
-      'highlightAssist_criticalErrors',
-      'highlightAssist_lastSaved'
-    ]);
-    
-    const logs = result.highlightAssist_logs || [];
-    const errors = result.highlightAssist_criticalErrors || [];
-    const lastSaved = result.highlightAssist_lastSaved || 'Never';
-    
-    const stats = {
-      totalLogs: logs.length,
-      criticalErrors: errors.length,
-      lastSaved: lastSaved,
-      byLevel: {}
-    };
-    
-    logs.forEach(log => {
-      stats.byLevel[log.level] = (stats.byLevel[log.level] || 0) + 1;
-    });
-    
-    const message = `HighlightAssist Stats:\n\n` +
-      `Total Logs: ${stats.totalLogs}\n` +
-      `Critical Errors: ${stats.criticalErrors}\n` +
-      `Last Saved: ${lastSaved}\n\n` +
-      `By Level:\n` +
-      Object.entries(stats.byLevel).map(([level, count]) => 
-        `  ${level}: ${count}`
-      ).join('\n') +
-      `\n\nClick "Export Logs" to download full logs.`;
-    
-    alert(message);
-    console.log('Full settings:', result);
-  });
+  // Enhanced Settings button functionality for cross-browser compatibility (debounced, non-blocking notification)
+  settingsBtn.addEventListener('click', debounce(async () => {
+    try {
+      const storage = (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) ? chrome.storage.local :
+                      (typeof browser !== 'undefined' && browser.storage && browser.storage.local) ? browser.storage.local : null;
+      if (!storage) {
+        showError('Settings are not supported in this browser. Please use a compatible browser like Chrome, Firefox, or Opera.');
+        return;
+      }
+      const result = await storage.get([
+        'highlightAssist_logs',
+        'highlightAssist_criticalErrors',
+        'highlightAssist_lastSaved'
+      ]);
+      const logs = result.highlightAssist_logs || [];
+      const errors = result.highlightAssist_criticalErrors || [];
+      const lastSaved = result.highlightAssist_lastSaved || 'Never';
+      const stats = {
+        totalLogs: logs.length,
+        criticalErrors: errors.length,
+        lastSaved: lastSaved,
+        byLevel: {}
+      };
+      logs.forEach(log => {
+        stats.byLevel[log.level] = (stats.byLevel[log.level] || 0) + 1;
+      });
+      const message = `HighlightAssist Stats:\nTotal Logs: ${stats.totalLogs}\nCritical Errors: ${stats.criticalErrors}\nLast Saved: ${lastSaved}\n` +
+        Object.entries(stats.byLevel).map(([level, count]) => `  ${level}: ${count}`).join('\n');
+      showSuccess(message);
+      console.log('Full settings:', result);
+    } catch (error) {
+      showError('Failed to load settings. Please try again later.');
+      console.error('Settings button error:', error);
+    }
+  }, 400));
 
   function updateUI(isActive) {
     statusDiv.innerHTML = '';

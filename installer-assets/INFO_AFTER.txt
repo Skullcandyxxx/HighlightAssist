@@ -1,0 +1,19 @@
+HighlightAssist Bridge Installed ✨
+───────────────────────────────────
+
+What just happened
+• HighlightAssist Bridge scripts, service manager, and native messaging host were copied to %APPDATA%\HighlightAssist.
+• Optional items (desktop shortcut, auto-start) were created based on your selections.
+• Chrome/Edge native messaging manifests were registered so the extension can securely start/stop the bridge.
+
+Next steps
+1. Launch the “HighlightAssist Bridge” shortcut (or let the browser extension start it automatically).
+2. Open Chrome/Edge, enable the HighlightAssist extension, and use the Bridge tab to verify the daemon connection.
+3. Review the README inside the install directory for troubleshooting and advanced usage.
+
+Support & Safety
+• Docs, issue tracker, and updates: https://github.com/Skullcandyxxx/HighlightAssist
+• Logs: %LOCALAPPDATA%\HighlightAssist\logs (safe to share when reporting bugs).
+• To uninstall, use “Apps & Features” or run this installer again and choose “Uninstall”.
+
+Thank you for building better UI experiences with HighlightAssist!
