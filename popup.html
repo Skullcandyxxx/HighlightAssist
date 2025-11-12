@@ -30,12 +30,12 @@
         .logo-icon {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
+        }
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         h1 {
             font-size: 18px;
@@ -210,7 +210,9 @@
 <body>
     <div class="header">
         <div class="logo">
-            <div class="logo-icon">🎯</div>
+            <div class="logo-icon">
+                <img src="icons/icon48.png" alt="Highlight Assist Logo">
+            </div>
             <div>
                 <h1>Highlight Assist</h1>
                 <div class="tagline">Visual UI Debugger</div>
