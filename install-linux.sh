@@ -34,12 +34,12 @@ mkdir -p "$HOME/.config/systemd/user"
 
 cat > "$SERVICE_FILE" << EOF
 [Unit]
-Description=HighlightAssist Background Service
+Description=HighlightAssist Background Service (v2.0 OOP)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 $(pwd)/service-manager.py
+ExecStart=/usr/bin/python3 $(pwd)/service_manager_v2.py
 Restart=on-failure
 
 [Install]

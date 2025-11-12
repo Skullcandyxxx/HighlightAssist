@@ -2,7 +2,9 @@
 console.log('[Highlight Assist] Content script loaded');
 
 let overlayLoaded = false;
+let overlayReady = false;
 let pendingResponse = null;
+let messageQueue = [];
 
 // Wait for logger to be available
 setTimeout(() => {
@@ -15,6 +17,24 @@ setTimeout(() => {
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   const data = event.data || {};
+  
+  // NEW: Handle overlay ready signal (HANDSHAKE PROTOCOL)
+  if (data.type === 'HIGHLIGHT_ASSIST_READY') {
+    console.log('[Highlight Assist] ✅ Overlay confirmed ready');
+    overlayReady = true;
+    overlayLoaded = true;
+    
+    // Flush queued messages
+    messageQueue.forEach(msg => {
+      console.log('[Highlight Assist] Sending queued message:', msg);
+      window.postMessage(msg, '*');
+    });
+    messageQueue = [];
+    
+    if (typeof logger !== 'undefined') {
+      logger.success('Overlay ready and initialized', { timestamp: data.timestamp }, 'content');
+    }
+  }
   
   if (data.type === 'HIGHLIGHT_ASSIST_RESPONSE') {
     // Handle response from overlay-gui
@@ -98,20 +118,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       // Load overlay if not loaded
       if (!overlayLoaded) {
         loadOverlayGui();
-        // Wait for overlay to load before sending message
-        setTimeout(() => {
-          window.postMessage({ 
-            type: 'HIGHLIGHT_ASSIST', 
-            action: 'toggleInspecting' 
-          }, '*');
-        }, 500);
-      } else {
-        // Forward to overlay-gui.js
-        window.postMessage({ 
-          type: 'HIGHLIGHT_ASSIST', 
-          action: 'toggleInspecting' 
-        }, '*');
       }
+      
+      // Send message (will be queued if overlay not ready)
+      sendToOverlay({ 
+        type: 'HIGHLIGHT_ASSIST', 
+        action: 'toggleInspecting' 
+      });
       
       // Wait for overlay to respond with actual state
       pendingResponse = (data) => {
@@ -127,7 +140,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true, isInspecting: false });
           pendingResponse = null;
         }
-      }, 1000);
+      }, 2000); // Increased to 2s for OOP init time
       
       return true; // Keep channel open for async response
     } 
@@ -136,25 +149,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       // Load overlay if not loaded
       if (!overlayLoaded) {
         loadOverlayGui();
-        // Wait for overlay to load before showing GUI
-        setTimeout(() => {
-          window.postMessage({ 
-            type: 'HIGHLIGHT_ASSIST', 
-            action: 'showGui' 
-          }, '*');
-        }, 500);
-      } else {
-        // Show the GUI panel
-        window.postMessage({ 
-          type: 'HIGHLIGHT_ASSIST', 
-          action: 'showGui' 
-        }, '*');
       }
       
-      sendResponse({ success: true });
+      // Send message (will be queued if overlay not ready)
+      sendToOverlay({ 
+        type: 'HIGHLIGHT_ASSIST', 
+        action: 'showGui' 
+      });
+      
+      // Wait for response
+      pendingResponse = (data) => {
+        sendResponse({ success: true, panelShown: data.panelShown || data.success });
+      };
+      
+      // Timeout fallback
+      setTimeout(() => {
+        if (pendingResponse) {
+          sendResponse({ success: false, error: 'Timeout waiting for overlay' });
+          pendingResponse = null;
+        }
+      }, 2000);
+      
       if (typeof logger !== 'undefined') {
-        logger.success('GUI panel opened', {}, 'content');
+        logger.success('GUI panel request sent', {}, 'content');
       }
+      
+      return true; // Keep channel open
     }
 
     if (request.action === 'getState') {
@@ -208,6 +228,24 @@ chrome.storage.local.get(['highlightAssistActive'], (result) => {
   }
 });
 
+// Helper function to send messages to overlay with queue support
+function sendToOverlay(message) {
+  if (!overlayReady) {
+    // Queue message for later
+    console.log('[Highlight Assist] Queuing message (overlay not ready):', message);
+    messageQueue.push(message);
+    
+    // Load overlay if not already loading
+    if (!overlayLoaded) {
+      loadOverlayGui();
+    }
+  } else {
+    // Send immediately
+    console.log('[Highlight Assist] Sending message to overlay:', message);
+    window.postMessage(message, '*');
+  }
+}
+
 function loadOverlayGui() {
   if (overlayLoaded) {
     console.log('[Highlight Assist] Overlay already loaded');
@@ -217,31 +255,36 @@ function loadOverlayGui() {
     return;
   }
 
-  console.log('[Highlight Assist] Loading overlay GUI');
+  console.log('[Highlight Assist] Loading OOP overlay GUI...');
   if (typeof logger !== 'undefined') {
-    logger.info('Loading overlay GUI', {}, 'content');
+    logger.info('Loading OOP overlay GUI', {}, 'content');
   }
 
   try {
-    // Inject the overlay-gui.js script
+    // Inject the NEW OOP overlay-gui.js script
     const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('overlay-gui.js');
+    script.type = 'module'; // ES6 module support
+    script.src = chrome.runtime.getURL('overlay-gui-oop.js');
+    script.dataset.highlightAssist = 'overlay'; // Mark for debugging
+    
     script.onload = function() {
-      console.log('[Highlight Assist] Overlay GUI loaded');
+      console.log('[Highlight Assist] OOP overlay script loaded, waiting for init...');
       if (typeof logger !== 'undefined') {
-        logger.success('Overlay GUI loaded successfully', {}, 'content');
+        logger.success('OOP overlay script loaded', {}, 'content');
       }
-      overlayLoaded = true;
-      this.remove();
+      // Don't set overlayLoaded here - wait for HIGHLIGHT_ASSIST_READY signal
     };
+    
     script.onerror = function(error) {
-      console.error('[Highlight Assist] Failed to load overlay GUI', error);
+      console.error('[Highlight Assist] Failed to load overlay GUI:', error);
       if (typeof logger !== 'undefined') {
         logger.error('Failed to load overlay GUI', { error }, 'content');
       }
       overlayLoaded = false;
+      overlayReady = false;
     };
     
+    // Don't remove script - allows DevTools inspection
     (document.head || document.documentElement).appendChild(script);
   } catch (error) {
     console.error('[Highlight Assist] Exception loading overlay:', error);

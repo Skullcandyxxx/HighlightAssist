@@ -1,17 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-# PyInstaller spec file for HighlightAssist Service Manager
+# PyInstaller spec file for HighlightAssist Service Manager v2.0
+# Updated for OOP modular architecture
 import os
 from pathlib import Path
 
 
 # --- Metadata for version info and AV trust ---
 a = Analysis(
-    ['service-manager.py'],
+    ['service_manager_v2.py'],
     pathex=['.'],
     binaries=[],
     datas=[
         ('assets/icon-128.png', 'assets'),
+        ('core/__init__.py', 'core'),
+        ('core/bridge_controller.py', 'core'),
+        ('core/tcp_server.py', 'core'),
+        ('core/notifier.py', 'core'),
     ],
     hiddenimports=[
         'win10toast',
