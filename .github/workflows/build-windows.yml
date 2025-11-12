@@ -21,13 +21,16 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
           pip install pyinstaller
 
       - name: Build Service Manager with PyInstaller
         run: |
           pyinstaller --noconfirm --clean pyinstaller.spec
-          dir dist
+        shell: powershell
+      
+      - name: List dist directory
+        run: dir dist
+        shell: powershell
 
       - name: Copy installer files
         run: |
@@ -42,18 +45,20 @@ jobs:
 
       - name: Create Windows ZIP package
         run: |
-          Compress-Archive -Path release\* -DestinationPath HighlightAssist-Windows-${{ github.ref_name }}.zip
+          $version = "${{ github.ref_name }}"
+          Compress-Archive -Path release\* -DestinationPath "HighlightAssist-Windows-$version.zip"
+        shell: powershell
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: HighlightAssist-Windows-${{ github.ref_name }}.zip
+          path: HighlightAssist-Windows-*.zip
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: HighlightAssist-Windows-${{ github.ref_name }}.zip
+          files: HighlightAssist-Windows-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
