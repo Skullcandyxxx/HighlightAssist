@@ -36,13 +36,15 @@ The installer will be created in `installers/HighlightAssist-Setup-vX.Y.Z.exe` (
 ## Installer Features
 
 ✅ **Professional Windows Installer (.exe)**
-- Modern wizard interface with branding
+- Modern gradient artwork, badges, and typography
+- Info-before + info-after screens with privacy & disclaimer copy
 - Python dependency check before installation
 - Automatic pip dependency installation
 - Start Menu shortcuts
 - Desktop icon (optional)
 - Auto-start on Windows boot (optional)
 - Proper uninstall via Windows Control Panel
+- Chrome/Edge native host registration for the browser extension
 
 ✅ **License Display**
 - Shows MIT license during installation
@@ -70,6 +72,13 @@ Edit `installer-config.iss` to customize:
 - Default tasks
 - Additional files
 - Registry entries
+- InfoBefore/InfoAfter screens (`installer-assets/INFO_BEFORE.txt` + `INFO_AFTER.txt`)
+- Native host manifest output paths
+
+### Updating Branded Artwork
+The GitHub workflow now auto-generates gradient BMPs with typography. To supply your own artwork:
+- Replace `installer-wizard-image.bmp` (164 × 314) and `installer-wizard-small.bmp` (55 × 58) with custom designs.
+- Or tweak the `Create installer images` step inside `.github/workflows/build-installer.yml` to draw different gradients, icons, or brand colors.
 
 ## Testing
 

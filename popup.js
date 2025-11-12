@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tabUrl = new URL(localhostTab.url);
         const shortUrl = tabUrl.hostname + ':' + (tabUrl.port || '80') + tabUrl.pathname.substring(0, 20);
         
-        html += `<div class="localhost-link" data-tab-id="${localhostTab.id}" style="
+        html += `<div class="localhost-link" data-tab-id="${localhostTab.id}" data-window-id="${localhostTab.windowId}" style="
           padding: 8px;
           margin: 4px 0;
           background: rgba(59, 130, 246, 0.1);
@@ -98,8 +98,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('.localhost-link').forEach(link => {
           link.addEventListener('click', async () => {
             const tabId = parseInt(link.getAttribute('data-tab-id'));
-            await chrome.tabs.update(tabId, { active: true });
-            window.close(); // Close popup after switching
+            const windowId = parseInt(link.getAttribute('data-window-id'));
+
+            try {
+              if (!Number.isNaN(windowId)) {
+                await chrome.windows.update(windowId, { focused: true });
+              }
+              await chrome.tabs.update(tabId, { active: true });
+              window.close(); // Close popup after switching
+            } catch (err) {
+              console.error('[Highlight Assist] Failed to switch tabs:', err);
+              showError('Could not switch to localhost tab (need tabs permission?).');
+            }
           });
         });
       }, 100);
