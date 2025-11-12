@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Highlight Assist - Visual UI Debugger",
   "short_name": "Highlight Assist",
-  "version": "3.3.0",
+  "version": "1.1.0",
   "description": "Professional UI debugging tool for developers. Inspect elements visually, send structured data to AI assistants, and debug faster without screenshots.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2bol3LbRGHfa6Ryp1+G/s1zNJbG3t3DtmHPJOncjXA8vaZbLFn7kEaEh7gboGu3qv/oPhqBePeytVIuFVGI0f0QdNtMniIOm8Y2CTB3JJ9jv8so6+bp8EbWYpmYu2lfl4fn4JSCKKUin5TKs4U6mtoX0xFCXdY33Kx+Jx+TSQfLzDFU6nuI7y5J11yicpEgCtged3bvA9BuNQXbXGekPvVAwcUWZcn7mpMCq5zhLY2Hwwsvx/Ar6A6rh+icve4gBTsMFx+Tmfp0P/P2lq2iaeDGIXQqf1nAaWJhqbBsE9r+Od6DVpF+s1vOmOse22qcjXGcvKpG3Hn+ehNxqjo2N2wIDAQAB",
   "author": "Skullcandyxxx",
