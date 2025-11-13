@@ -113,7 +113,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     badge.style.display = 'block';
     badge.className = 'daemon-badge ' + (connected ? 'connected' : 'disconnected');
     icon.textContent = connected ? '✅' : '🔌';
-    state.textContent = connected ? 'Connected & Ready' : 'Not Running';
+    
+    // Show action button based on connection status
+    if (connected) {
+      state.innerHTML = 'Connected & Ready <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="stopDaemonBtn">⏹️ Stop</span>';
+    } else {
+      state.innerHTML = 'Not Running <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="startDaemonBtn">▶️ Start</span>';
+    }
     
     // Show/hide start server button based on connection
     if (startServerSection) {
@@ -129,6 +135,206 @@ document.addEventListener('DOMContentLoaded', async () => {
       osText = '🐧 Linux';
     }
     osIcon.textContent = osText;
+    
+    // Add event listeners for start/stop buttons
+    setTimeout(() => {
+      const startBtn = document.getElementById('startDaemonBtn');
+      const stopBtn = document.getElementById('stopDaemonBtn');
+      
+      if (startBtn) {
+        startBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await startDaemon();
+        });
+      }
+      
+      if (stopBtn) {
+        stopBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await stopDaemon();
+        });
+      }
+    }, 100);
+  }
+  
+  // Start daemon service
+  async function startDaemon() {
+    const platform = navigator.platform.toLowerCase();
+    let instructions = '';
+    
+    if (platform.includes('win')) {
+      instructions = `
+        <div style="text-align: left; line-height: 1.8;">
+          <strong>Start HighlightAssist Daemon on Windows:</strong><br><br>
+          <strong>Method 1: From Start Menu</strong><br>
+          1️⃣ Press <kbd>Windows</kbd> key<br>
+          2️⃣ Type "HighlightAssist"<br>
+          3️⃣ Click the app to start<br>
+          4️⃣ Purple tray icon will appear<br><br>
+          
+          <strong>Method 2: From Installation Folder</strong><br>
+          1️⃣ Go to: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 11px;">C:\\Program Files\\HighlightAssist</code><br>
+          2️⃣ Double-click <strong>service_manager_v2.exe</strong><br><br>
+          
+          <strong>Method 3: Auto-start (recommended)</strong><br>
+          The daemon should auto-start with Windows if you checked the option during installation.
+        </div>
+      `;
+    } else if (platform.includes('mac')) {
+      instructions = `
+        <div style="text-align: left; line-height: 1.8;">
+          <strong>Start HighlightAssist Daemon on macOS:</strong><br><br>
+          1️⃣ Open <strong>Terminal</strong><br>
+          2️⃣ Run: <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">python3 ~/HighlightAssist/service_manager_v2.py &</code><br>
+          3️⃣ Daemon starts in background
+        </div>
+      `;
+    } else {
+      instructions = `
+        <div style="text-align: left; line-height: 1.8;">
+          <strong>Start HighlightAssist Daemon on Linux:</strong><br><br>
+          1️⃣ Open terminal<br>
+          2️⃣ Run: <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">systemctl --user start highlightassist</code><br>
+          3️⃣ Or run directly: <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">python3 ~/highlightassist/service_manager_v2.py &</code>
+        </div>
+      `;
+    }
+    
+    await showCustomModal({
+      icon: '▶️',
+      title: 'Start Daemon',
+      body: `<div style="padding: 12px;">${instructions}</div>`,
+      buttons: [
+        { text: 'Got it', value: true, primary: true, onClick: async () => {
+          // Recheck daemon status after user clicks
+          setTimeout(async () => {
+            daemonConnected = await checkDaemonConnection();
+            updateDaemonStatusBadge(daemonConnected);
+          }, 1000);
+        }}
+      ]
+    });
+  }
+  
+  // Stop daemon service
+  async function stopDaemon() {
+    const confirmHTML = `
+      <div style="text-align: center; padding: 12px;">
+        <div style="font-size: 14px; color: #64748b; margin-bottom: 16px;">
+          This will stop the daemon service. You won't be able to start localhost servers until you restart it.
+        </div>
+        <div style="background: #fef3c7; padding: 10px; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 12px;">
+          💡 <strong>Tip:</strong> You can stop the daemon from the system tray icon instead (right-click → Quit)
+        </div>
+      </div>
+    `;
+    
+    const result = await showCustomModal({
+      icon: '⚠️',
+      title: 'Stop Daemon?',
+      body: confirmHTML,
+      buttons: [
+        { text: 'Cancel', value: false, primary: false },
+        { text: 'Stop Daemon', value: true, primary: true }
+      ]
+    });
+    
+    if (!result) return;
+    
+    const state = document.getElementById('daemonState');
+    state.innerHTML = 'Stopping... ⏳';
+    
+    try {
+      // Try HTTP shutdown endpoint first (more reliable than WebSocket)
+      const response = await fetch('http://localhost:5055/shutdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'shutdown' }),
+        signal: AbortSignal.timeout(3000)
+      });
+      
+      if (response.ok) {
+        // Success - update UI after a moment
+        setTimeout(async () => {
+          daemonConnected = await checkDaemonConnection();
+          updateDaemonStatusBadge(daemonConnected);
+          
+          showCustomModal({
+            icon: '✅',
+            title: 'Daemon Stopped',
+            body: '<div style="text-align: center; padding: 20px;">The daemon has been stopped successfully.</div>',
+            buttons: [{ text: 'OK', value: true, primary: true }]
+          });
+        }, 1500);
+        return;
+      }
+    } catch (httpError) {
+      console.log('HTTP shutdown failed, trying WebSocket...', httpError);
+    }
+    
+    try {
+      // Fallback to WebSocket
+      const ws = new WebSocket('ws://localhost:5055/ws');
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          type: 'shutdown',
+          data: {}
+        }));
+        
+        // Update UI after sending command
+        setTimeout(async () => {
+          daemonConnected = await checkDaemonConnection();
+          updateDaemonStatusBadge(daemonConnected);
+        }, 1500);
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        state.innerHTML = 'Not Running <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="startDaemonBtn">▶️ Start</span>';
+        
+        showCustomModal({
+          icon: '❌',
+          title: 'Stop Failed',
+          body: `
+            <div style="text-align: center; padding: 20px;">
+              <div style="font-size: 14px; color: #dc2626; margin-bottom: 12px;">Failed to stop daemon via extension.</div>
+              <div style="font-size: 12px; color: #64748b;">
+                Please use the system tray icon instead:<br>
+                Right-click the tray icon → <strong>Quit</strong>
+              </div>
+            </div>
+          `,
+          buttons: [{ text: 'OK', value: true, primary: true }]
+        });
+      };
+      
+      // Set timeout for WebSocket
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Failed to stop daemon:', error);
+      state.innerHTML = 'Not Running <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="startDaemonBtn">▶️ Start</span>';
+      
+      showCustomModal({
+        icon: '❌',
+        title: 'Error',
+        body: `
+          <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 14px; color: #dc2626; margin-bottom: 12px;">Unable to communicate with daemon.</div>
+            <div style="font-size: 12px; color: #64748b;">
+              The daemon may already be stopped, or you can stop it manually:<br>
+              Right-click the purple tray icon → <strong>Quit</strong>
+            </div>
+          </div>
+        `,
+        buttons: [{ text: 'OK', value: true, primary: true }]
+      });
+    }
   }
   
   updateDaemonStatusBadge(daemonConnected);
