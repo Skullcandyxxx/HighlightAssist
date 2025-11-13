@@ -1,4 +1,4 @@
-name: Build Windows Installer
+name: Build Cross-Platform Installers
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
+  build-installers:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -40,7 +40,7 @@ jobs:
           choco install innosetup -y
         shell: powershell
 
-      - name: Build Professional Installer
+      - name: Build Professional Windows Installer
         run: |
           # Copy icon to expected location
           mkdir -Force icons
@@ -53,20 +53,46 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
         shell: powershell
 
-      - name: List installer output
-        run: dir installers
+      - name: Create Linux/macOS packages
+        run: |
+          # Create installers directory if it doesn't exist
+          mkdir -Force installers
+          
+          # Get version from tag
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          
+          # Package Linux installer
+          Compress-Archive -Path `
+            "install-linux.sh", `
+            "bridge.py", `
+            "service-manager.py", `
+            "requirements.txt", `
+            "README.md", `
+            "LICENSE" `
+            -DestinationPath "installers\HighlightAssist-Linux-v$version.zip" -Force
+          
+          # Package macOS installer
+          Compress-Archive -Path `
+            "install-macos.sh", `
+            "bridge.py", `
+            "service-manager.py", `
+            "requirements.txt", `
+            "README.md", `
+            "LICENSE" `
+            -DestinationPath "installers\HighlightAssist-macOS-v$version.zip" -Force
         shell: powershell
 
-      - name: Upload Professional Installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: installers\HighlightAssist-Setup-*.exe
+      - name: List all installers
+        run: dir installers
+        shell: powershell
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: installers\HighlightAssist-Setup-*.exe
+          files: |
+            installers/HighlightAssist-Setup-*.exe
+            installers/HighlightAssist-Linux-*.zip
+            installers/HighlightAssist-macOS-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
