@@ -5,9 +5,12 @@ Uses selector-based TCP server for minimal CPU usage.
 """
 from __future__ import annotations
 
+# Prevent __pycache__ creation (must be before other imports)
+import sys
+sys.dont_write_bytecode = True
+
 import logging
 import os
-import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 

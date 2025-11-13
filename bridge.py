@@ -2,6 +2,10 @@
 HighlightAssist WebSocket Bridge
 Maintains persistent WebSocket connections and coordinates between extension and services
 """
+# Prevent __pycache__ creation (must be before other imports)
+import sys
+sys.dont_write_bytecode = True
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
