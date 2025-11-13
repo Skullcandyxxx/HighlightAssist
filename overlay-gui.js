@@ -568,19 +568,6 @@
     html += '<button id="ha-refresh-projects" style="padding:6px; background-color: rgba(255,255,255,0.02); border:1px solid rgba(0,0,0,0.05); border-radius:6px; color:#94a3b8; cursor:pointer; font-size:11px;">🔄</button>';
     html += '</div>';
     html += '</div>';
-
-    html += '<div style="background-color: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 6px; border: 1px solid rgba(71, 85, 105, 0.4); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">';
-    html += '<div>';
-    html += '<div style="font-size: 9px; color: #94a3b8; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px;">Native Helper</div>';
-    html += '<div style="font-size: 11px; color: #f8fafc; font-weight: 600;">' + (nativeStatus.running ? 'Bridge daemon active' : nativeStatus.available ? 'Ready to launch via extension' : 'Awaiting local daemon') + '</div>';
-    if (nativeStatus.error) {
-      html += '<div style="font-size: 9px; color: #f87171;">' + nativeStatus.error + '</div>';
-    } else {
-      html += '<div style="font-size: 9px; color: #94a3b8;">The extension uses a secure native helper to start/stop the AI bridge.</div>';
-    }
-    html += '</div>';
-    html += '<button id="ha-refresh-native-status" style="padding: 6px 10px; border-radius: 5px; border: 1px solid rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.15); color: #93c5fd; font-size: 10px; font-weight: 600; cursor: pointer;">↻ Refresh</button>';
-    html += '</div>';
     
     html += '</div>';
     
@@ -1958,17 +1945,6 @@
               updateUI();
             });
         }
-      });
-    }
-    
-    var refreshNativeBtn = document.getElementById('ha-refresh-native-status');
-    if (refreshNativeBtn) {
-      refreshNativeBtn.addEventListener('click', function() {
-        refreshNativeBtn.disabled = true;
-        refreshNativeHostStatus();
-        setTimeout(function() {
-          refreshNativeBtn.disabled = false;
-        }, 1500);
       });
     }
     
