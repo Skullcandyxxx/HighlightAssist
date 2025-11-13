@@ -12,6 +12,7 @@ sys.dont_write_bytecode = True
 
 import logging
 import os
+import socket
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -21,6 +22,7 @@ from core.notifier import NotificationManager
 from core.tcp_server import TCPControlServer
 from core.health_server import HealthCheckServer
 from core.bridge_monitor import BridgeMonitor
+from core.project_manager import ProjectManager
 
 # Try to import tray icon
 try:
@@ -50,17 +52,37 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def check_single_instance(port: int = 5054) -> bool:
+    """Check if another instance is already running by testing TCP port.
+    
+    Returns:
+        True if this is the only instance, False if another is running
+    """
+    try:
+        # Try to bind to the control port - if it fails, another instance is running
+        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        test_socket.bind(('127.0.0.1', port))
+        test_socket.close()
+        return True  # Port is free, we're the only instance
+    except OSError:
+        return False  # Port in use, another instance is running
+
+
+
 class ServiceManager:
     """Main service manager - coordinates all components."""
     
-    def __init__(self, control_port: int = 5054, bridge_port: int = 5055, health_port: int = 5056, use_tray: bool = True):
+    def __init__(self, control_port: int = 5054, bridge_port: int = 5055, health_port: int = 5056, use_tray: bool = True, auto_start_bridge: bool = True):
         self.bridge = BridgeController(port=bridge_port)
         self.server = TCPControlServer(port=control_port)
         self.health_server = HealthCheckServer(port=health_port, service_manager=self)
         self.notifier = NotificationManager()
+        self.project_manager = ProjectManager()
         self.monitor = None  # Bridge monitor (created after initialization)
         self.tray = None
         self.use_tray = use_tray and HAS_TRAY
+        self.auto_start_bridge = auto_start_bridge
         self.start_time = datetime.now()
         
         # Set command handler
@@ -75,7 +97,7 @@ class ServiceManager:
         
         # Create tray icon if available
         if self.use_tray:
-            self.tray = HighlightAssistTray(self.bridge, self.notifier)
+            self.tray = HighlightAssistTray(self.bridge, self.notifier, self)
         
         logger.info('HighlightAssist Service Manager v2.0 initialized')
         logger.info(f'TCP Control: port {control_port}')
@@ -155,9 +177,19 @@ class ServiceManager:
             # Start bridge monitor
             self.monitor.start()
             
+            # Auto-start bridge if enabled
+            if self.auto_start_bridge:
+                logger.info('Auto-starting bridge...')
+                result = self.bridge.start()
+                if result['status'] == 'started':
+                    logger.info(f"✅ Bridge auto-started on port {result['port']}")
+                    self.notifier.notify('HighlightAssist', f'Bridge started on port {result["port"]}')
+                else:
+                    logger.warning(f"Bridge auto-start result: {result['status']}")
+            else:
+                logger.info('Bridge auto-start disabled')
+            
             logger.info('Service manager running. Press Ctrl+C to stop.')
-            # Skip startup notification to avoid win10toast errors
-            # self.notifier.notify('HighlightAssist', 'Service manager started')
             
             # Run with tray icon if available
             if self.use_tray and self.tray:
@@ -215,12 +247,83 @@ class ServiceManager:
         except Exception as e:
             logger.error(f'Error stopping bridge: {e}')
         
+        # Lock file will be automatically released when process exits
+        
         self.notifier.notify('HighlightAssist', 'Service stopped')
         logger.info('Shutdown complete')
 
 
 if __name__ == '__main__':
     import argparse
+    import time
+    
+    # CRITICAL: Detect if we're pystray's GUI child process
+    # pystray.Icon.run() on Windows re-executes this .exe for GUI thread
+    # The child should ONLY run the tray GUI, not re-initialize services
+    try:
+        import psutil
+        current_pid = os.getpid()
+        parent = psutil.Process(current_pid).parent()
+        
+        if parent and 'HighlightAssist-Service-Manager' in parent.name():
+            # We're the tray GUI child - exit and let pystray handle us
+            # pystray will manage this process for its GUI loop
+            sys.exit(0)
+    except Exception:
+        # psutil failed or parent not detectable - assume we're the main process
+        pass
+    
+    # DEBUG: Log immediately to see how many times this runs
+    logger.info(f'========== SERVICE MANAGER STARTING (PID {os.getpid()}) ==========')
+    
+    # CRITICAL: Single instance check using exclusive file lock
+    # This prevents race conditions between rapidly-starting instances
+    LOCK_FILE = LOG_DIR / '.service-manager.lock'
+    lock_handle = None
+    
+    try:
+        # Open lock file for writing (create if doesn't exist)
+        lock_handle = open(LOCK_FILE, 'w')
+        
+        # Try to acquire exclusive lock
+        if sys.platform.startswith('win'):
+            import msvcrt
+            try:
+                # Try to lock the file (non-blocking)
+                msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError:
+                # Lock failed - another instance is running
+                print('\n' + '='*60)
+                print('⚠️  ANOTHER INSTANCE IS ALREADY RUNNING')
+                print('='*60)
+                print('\nAnother service manager is already running.')
+                print('Check your system tray for the HighlightAssist icon.')
+                print('\nIf you need to restart:')
+                print('  1. Right-click the tray icon → Exit')
+                print('  2. Or run: taskkill /F /IM "HighlightAssist-Service-Manager.exe"')
+                print('='*60 + '\n')
+                logger.error('Another instance is already running (file lock held)')
+                sys.exit(1)
+        else:
+            # Unix: use fcntl
+            import fcntl
+            try:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except IOError:
+                print('\n⚠️  Another instance is already running!\n')
+                logger.error('Another instance is already running (file lock held)')
+                sys.exit(1)
+        
+        # Write our PID to the lock file
+        lock_handle.write(str(os.getpid()))
+        lock_handle.flush()
+        
+        # Keep file handle open for the lifetime of the process
+        # Lock will be released automatically when process exits
+        
+    except Exception as e:
+        logger.error(f'Error acquiring lock file: {e}')
+        sys.exit(1)
     
     parser = argparse.ArgumentParser(description='HighlightAssist Service Manager')
     parser.add_argument('--no-tray', action='store_true', help='Run in console mode without tray icon')

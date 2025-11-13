@@ -10,13 +10,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   async function checkDaemonConnection() {
     try {
-      const response = await fetch('http://localhost:5055/health', {
+      // Use dedicated health server (port 5056) instead of bridge
+      // This avoids GIL contention issues with thread-mode bridge
+      const response = await fetch('http://localhost:5056/health', {
         method: 'GET',
         signal: AbortSignal.timeout(2000) // 2 second timeout
       });
       const data = await response.json();
       return data.status === 'ok';
     } catch (error) {
+      console.log('Daemon not connected:', error.message);
       return false;
     }
   }
@@ -27,6 +30,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Helper: Scan for running localhost servers
   async function scanRunningLocalhostServers() {
+    // Only scan if daemon is connected (optional feature)
+    if (!daemonConnected) {
+      console.log('Skipping server scan - daemon not connected');
+      return [];
+    }
+    
     const commonPorts = [3000, 3001, 4200, 5000, 5173, 5174, 8000, 8080, 8081, 8888, 9000];
     const running = [];
     
@@ -50,10 +59,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         running.push({ port, type });
       } catch (e) {
-        // Port not responding
+        // Port not responding - this is normal, just skip
+        continue;
       }
     }
     
+    console.log(`Found ${running.length} running servers:`, running);
     return running;
   }
   
@@ -761,7 +772,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         async function showFolderSelectionAndExecute(command, port) {
           // Scan for running localhost servers first
-          const runningServers = await scanRunningLocalhostServers();
+          let runningServers = [];
+          try {
+            runningServers = await scanRunningLocalhostServers();
+          } catch (error) {
+            console.warn('Failed to scan running servers:', error);
+            // Continue anyway - scan is optional
+          }
           
           // Get recent projects
           const recentProjects = await getRecentProjects();
@@ -1489,7 +1506,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Simple folder browser - no framework selection needed
   async function showSimpleFolderBrowser() {
     // Scan for running localhost servers first
-    const runningServers = await scanRunningLocalhostServers();
+    let runningServers = [];
+    try {
+      runningServers = await scanRunningLocalhostServers();
+    } catch (error) {
+      console.warn('Failed to scan running servers:', error);
+      // Continue anyway - scan is optional
+    }
     
     // Get recent projects
     const recentProjects = await getRecentProjects();
@@ -1510,48 +1533,68 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     }
     
-    // Build recent projects section
+    // Build recent projects section with clickable buttons
     let recentProjectsHTML = '';
     if (recentProjects.length > 0) {
       recentProjectsHTML = `
         <div style="margin-bottom: 16px;">
-          <div class="modal-subtitle">📂 Recent Projects:</div>
-          <select class="modal-input" id="recentProjects" style="margin-bottom: 8px;">
-            <option value="">-- Select a recent project --</option>
+          <div class="modal-subtitle">📂 Recent Projects (click to use):</div>
+          <div id="recentProjectsList" style="max-height: 200px; overflow-y: auto;">
             ${recentProjects.map(proj => `
-              <option value="${proj.path}">${proj.name}</option>
+              <button class="recent-project-btn" data-path="${proj.path.replace(/\\/g, '\\\\')}" style="
+                width: 100%;
+                text-align: left;
+                padding: 10px;
+                margin: 4px 0;
+                background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                border: 2px solid #e2e8f0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-size: 12px;
+              ">
+                <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">📁 ${proj.name}</div>
+                <div style="font-size: 10px; color: #64748b; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${proj.path}</div>
+              </button>
             `).join('')}
-          </select>
+          </div>
+          <div style="text-align: center; margin: 8px 0; font-size: 11px; color: #94a3b8;">OR</div>
         </div>
       `;
     }
     
     const platform = navigator.platform.toLowerCase();
     let browseInstructions = '';
+    let examplePath = '';
     
     if (platform.includes('win')) {
+      examplePath = 'C:\\Users\\YourName\\Projects\\my-app';
       browseInstructions = `
-        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
-          <strong>📁 How to get folder path:</strong><br>
-          1. Open File Explorer → Navigate to project<br>
-          2. Click address bar at top<br>
-          3. Copy path (Ctrl+C) and paste below
+        <div style="background: #dbeafe; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.6; margin-bottom: 12px; border-left: 3px solid #3b82f6;">
+          <strong>� Windows Quick Tip:</strong><br>
+          • Open File Explorer → Navigate to your project folder<br>
+          • Click the <strong>address bar</strong> (shows full path)<br>
+          • Press <strong>Ctrl+C</strong> to copy → Paste below with <strong>Ctrl+V</strong>
         </div>
       `;
     } else if (platform.includes('mac')) {
+      examplePath = '/Users/yourname/Projects/my-app';
       browseInstructions = `
-        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
-          <strong>📁 How to get folder path:</strong><br>
-          1. Open Finder → Navigate to project<br>
-          2. Right-click folder → "Get Info"<br>
-          3. Copy "Where" path and paste below
+        <div style="background: #dbeafe; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.6; margin-bottom: 12px; border-left: 3px solid #3b82f6;">
+          <strong>� macOS Quick Tip:</strong><br>
+          • Open Finder → Navigate to your project<br>
+          • Right-click folder → Hold <strong>Option</strong> key<br>
+          • Click "<strong>Copy as Pathname</strong>" → Paste below
         </div>
       `;
     } else {
+      examplePath = '/home/username/projects/my-app';
       browseInstructions = `
-        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
-          <strong>📁 How to get folder path:</strong><br>
-          Open terminal, navigate to project, and run: <code>pwd</code>
+        <div style="background: #dbeafe; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.6; margin-bottom: 12px; border-left: 3px solid #3b82f6;">
+          <strong>� Linux Quick Tip:</strong><br>
+          • Open terminal and navigate to project<br>
+          • Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">pwd</code><br>
+          • Copy the output and paste below
         </div>
       `;
     }
@@ -1562,17 +1605,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       ${browseInstructions}
       
-      <div class="modal-subtitle">Project Folder Path:</div>
-      <input type="text" class="modal-input" id="projectPath" placeholder="Paste your project folder path here..." style="margin-bottom: 12px;">
+      <div class="modal-subtitle">Enter Project Folder Path:</div>
+      <input type="text" class="modal-input" id="projectPath" placeholder="${examplePath}" style="margin-bottom: 8px;">
       
       <div class="modal-info">
-        💡 <strong>Auto-detection:</strong> Extension will scan your project and detect:
-        <ul style="margin: 8px 0 0 20px; font-size: 12px;">
-          <li>npm/yarn/pnpm scripts from package.json</li>
-          <li>Python virtual environments (.venv, venv)</li>
-          <li>requirements.txt or pyproject.toml</li>
-          <li>Common dev server commands</li>
-        </ul>
+        ✨ <strong>Smart Detection:</strong> We'll scan your project for:
+        <div style="font-size: 11px; margin-top: 6px; padding-left: 12px;">
+          • npm/yarn scripts (package.json)<br>
+          • Python environments (.venv, requirements.txt)<br>
+          • Common framework configs (vite, next, etc.)
+        </div>
       </div>
     `;
     
@@ -1603,16 +1645,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup event handlers after modal renders
     setTimeout(() => {
-      // Recent projects dropdown
-      const recentSelect = document.getElementById('recentProjects');
-      if (recentSelect) {
-        recentSelect.addEventListener('change', (e) => {
+      // Recent project buttons - click to use
+      const recentBtns = document.querySelectorAll('.recent-project-btn');
+      recentBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const path = btn.getAttribute('data-path');
           const input = document.getElementById('projectPath');
-          if (input && e.target.value) {
-            input.value = e.target.value;
+          if (input) {
+            input.value = path;
+            input.focus();
+            // Highlight the input
+            input.style.background = '#dbeafe';
+            input.style.borderColor = '#3b82f6';
+            setTimeout(() => {
+              input.style.background = '';
+              input.style.borderColor = '';
+            }, 1000);
           }
         });
-      }
+        
+        // Hover effect
+        btn.addEventListener('mouseenter', () => {
+          btn.style.background = 'linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%)';
+          btn.style.borderColor = '#a78bfa';
+          btn.style.transform = 'translateY(-2px)';
+          btn.style.boxShadow = '0 3px 10px rgba(139, 92, 246, 0.2)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.background = 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
+          btn.style.borderColor = '#e2e8f0';
+          btn.style.transform = 'translateY(0)';
+          btn.style.boxShadow = '';
+        });
+      });
       
       // Detected server buttons
       const serverBtns = document.querySelectorAll('.detected-server-btn');

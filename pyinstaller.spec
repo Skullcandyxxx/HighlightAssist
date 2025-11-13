@@ -20,7 +20,7 @@ a = Analysis(
         ('core/health_server.py', 'core'),
         ('core/bridge_monitor.py', 'core'),
         ('bridge.py', '.'),
-        ('tray_icon.py', '.'),
+        # tray_icon.py is imported as a module, NOT a data file!
     ],
     hiddenimports=[
         # Core dependencies
@@ -40,6 +40,9 @@ a = Analysis(
         # Standard library for health_server.py
         'http.server',
         'http',
+        # GUI libraries
+        'tkinter',  # Status window
+        'tkinter.ttk',
         # Platform-specific notification libraries (optional - code handles gracefully if missing)
         # 'win10toast',  # Windows only
         # 'notify2',     # Linux only  
@@ -60,7 +63,7 @@ a = Analysis(
     runtime_hooks=[],
     # Exclude only truly unused modules to avoid dependency issues
     excludes=[
-        'tkinter', 'pytest', 'unittest', 'test', 'tests', 'pydoc', 'doctest',
+        'pytest', 'unittest', 'test', 'tests', 'pydoc', 'doctest',
         'turtle', 'idlelib', 'lib2to3', 'pdb', 'cProfile', 'profile',
         'ensurepip', 'venv',
     ],
