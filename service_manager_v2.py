@@ -23,6 +23,7 @@ from core.tcp_server import TCPControlServer
 from core.health_server import HealthCheckServer
 from core.bridge_monitor import BridgeMonitor
 from core.project_manager import ProjectManager
+from web_dashboard import DashboardManager
 
 # Try to import tray icon
 try:
@@ -79,6 +80,7 @@ class ServiceManager:
         self.health_server = HealthCheckServer(port=health_port, service_manager=self)
         self.notifier = NotificationManager()
         self.project_manager = ProjectManager()
+        self.dashboard = DashboardManager(self)  # Web dashboard
         self.monitor = None  # Bridge monitor (created after initialization)
         self.tray = None
         self.use_tray = use_tray and HAS_TRAY
@@ -176,6 +178,20 @@ class ServiceManager:
             
             # Start bridge monitor
             self.monitor.start()
+            
+            # Start web dashboard in background
+            import threading
+            import asyncio
+            def run_dashboard():
+                try:
+                    asyncio.run(self.dashboard.start())
+                except Exception as e:
+                    logger.error(f'Dashboard error: {e}')
+            
+            dashboard_thread = threading.Thread(target=run_dashboard, daemon=True, name='Dashboard')
+            dashboard_thread.start()
+            logger.info(f'✅ Web dashboard started on http://127.0.0.1:{self.dashboard.port}')
+            self.notifier.notify('HighlightAssist', f'Dashboard: http://127.0.0.1:{self.dashboard.port}')
             
             # Auto-start bridge if enabled
             if self.auto_start_bridge:
