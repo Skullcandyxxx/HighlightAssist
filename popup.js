@@ -245,16 +245,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.innerHTML = 'Stopping... ⏳';
     
     try {
-      // Try HTTP shutdown endpoint first (more reliable than WebSocket)
-      const response = await fetch('http://localhost:5055/shutdown', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'shutdown' }),
-        signal: AbortSignal.timeout(3000)
-      });
+      // Use WebSocket to send shutdown command
+      const ws = new WebSocket('ws://localhost:5055/ws');
+      let shutdownSent = false;
       
-      if (response.ok) {
-        // Success - update UI after a moment
+      ws.onopen = () => {
+        console.log('✅ WebSocket connected, sending shutdown...');
+        ws.send(JSON.stringify({
+          type: 'shutdown',
+          data: {}
+        }));
+        shutdownSent = true;
+        
+        // Close connection after sending
+        setTimeout(() => ws.close(), 500);
+        
+        // Update UI after a moment
         setTimeout(async () => {
           daemonConnected = await checkDaemonConnection();
           updateDaemonStatusBadge(daemonConnected);
@@ -266,58 +272,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             buttons: [{ text: 'OK', value: true, primary: true }]
           });
         }, 1500);
-        return;
-      }
-    } catch (httpError) {
-      console.log('HTTP shutdown failed, trying WebSocket...', httpError);
-    }
-    
-    try {
-      // Fallback to WebSocket
-      const ws = new WebSocket('ws://localhost:5055/ws');
-      
-      ws.onopen = () => {
-        ws.send(JSON.stringify({
-          type: 'shutdown',
-          data: {}
-        }));
-        
-        // Update UI after sending command
-        setTimeout(async () => {
-          daemonConnected = await checkDaemonConnection();
-          updateDaemonStatusBadge(daemonConnected);
-        }, 1500);
       };
       
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        state.innerHTML = 'Not Running <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="startDaemonBtn">▶️ Start</span>';
+        console.error('❌ WebSocket connection error:', error);
         
-        showCustomModal({
-          icon: '❌',
-          title: 'Stop Failed',
-          body: `
-            <div style="text-align: center; padding: 20px;">
-              <div style="font-size: 14px; color: #dc2626; margin-bottom: 12px;">Failed to stop daemon via extension.</div>
-              <div style="font-size: 12px; color: #64748b;">
-                Please use the system tray icon instead:<br>
-                Right-click the tray icon → <strong>Quit</strong>
+        if (!shutdownSent) {
+          state.innerHTML = 'Not Running <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="startDaemonBtn">▶️ Start</span>';
+          
+          showCustomModal({
+            icon: '❌',
+            title: 'Connection Failed',
+            body: `
+              <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 14px; color: #dc2626; margin-bottom: 12px;">Failed to connect to daemon.</div>
+                <div style="font-size: 12px; color: #64748b;">
+                  The daemon may already be stopped, or you can stop it manually:<br>
+                  Right-click the system tray icon → <strong>Quit</strong>
+                </div>
               </div>
-            </div>
-          `,
-          buttons: [{ text: 'OK', value: true, primary: true }]
-        });
+            `,
+            buttons: [{ text: 'OK', value: true, primary: true }]
+          });
+        }
       };
       
-      // Set timeout for WebSocket
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) {
-          ws.close();
+      ws.onmessage = (event) => {
+        const response = JSON.parse(event.data);
+        console.log('📨 Received:', response);
+        
+        if (response.type === 'shutdown_ack') {
+          console.log('✅ Shutdown acknowledged by daemon');
         }
-      }, 3000);
+      };
+      
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+          console.error('⏱️ WebSocket connection timeout');
+        }
+      }, 5000);
       
     } catch (error) {
-      console.error('Failed to stop daemon:', error);
+      console.error('❌ Stop daemon error:', error);
       state.innerHTML = 'Not Running <span style="font-size: 10px; opacity: 0.7; margin-left: 8px; cursor: pointer;" id="startDaemonBtn">▶️ Start</span>';
       
       showCustomModal({
@@ -325,9 +323,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         title: 'Error',
         body: `
           <div style="text-align: center; padding: 20px;">
-            <div style="font-size: 14px; color: #dc2626; margin-bottom: 12px;">Unable to communicate with daemon.</div>
+            <div style="font-size: 14px; color: #dc2626; margin-bottom: 12px;">Error: ${error.message}</div>
             <div style="font-size: 12px; color: #64748b;">
-              The daemon may already be stopped, or you can stop it manually:<br>
+              Check the console for details, or stop manually via system tray.<br>
               Right-click the purple tray icon → <strong>Quit</strong>
             </div>
           </div>
