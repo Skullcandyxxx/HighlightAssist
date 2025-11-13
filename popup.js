@@ -677,27 +677,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Browse folder button
             const browseBtn = document.getElementById('browseFolderBtn');
-            if (browseBtn) {
+            const projectPathInput = document.getElementById('projectPath');
+            
+            if (browseBtn && projectPathInput) {
               browseBtn.addEventListener('click', async () => {
-                const input = document.getElementById('projectPath');
-                
-                // Show OS-specific instructions
+                // Show OS-specific instructions with visual guide
                 const platform = navigator.platform.toLowerCase();
                 let instructions = '';
+                let example = '';
                 
                 if (platform.includes('win')) {
-                  instructions = 'Open File Explorer → Navigate to your project → Copy the path from address bar → Paste here';
+                  instructions = `
+                    <div style="text-align: left; line-height: 1.8;">
+                      <strong>Windows:</strong><br>
+                      1️⃣ Open <strong>File Explorer</strong><br>
+                      2️⃣ Navigate to your project folder<br>
+                      3️⃣ Click the <strong>address bar</strong> at top<br>
+                      4️⃣ Press <kbd>Ctrl+C</kbd> to copy<br>
+                      5️⃣ Come back here and paste with <kbd>Ctrl+V</kbd>
+                    </div>
+                  `;
+                  example = 'C:\\Users\\YourName\\Projects\\MyApp';
                 } else if (platform.includes('mac')) {
-                  instructions = 'Open Finder → Navigate to your project → Right-click folder → "Get Info" → Copy path → Paste here';
+                  instructions = `
+                    <div style="text-align: left; line-height: 1.8;">
+                      <strong>macOS:</strong><br>
+                      1️⃣ Open <strong>Finder</strong><br>
+                      2️⃣ Navigate to your project folder<br>
+                      3️⃣ Right-click the folder → <strong>"Get Info"</strong><br>
+                      4️⃣ Find "Where:" and copy the path<br>
+                      5️⃣ Come back here and paste
+                    </div>
+                  `;
+                  example = '/Users/YourName/Projects/MyApp';
                 } else {
-                  instructions = 'Open file manager → Navigate to your project → Copy path → Paste here';
+                  instructions = `
+                    <div style="text-align: left; line-height: 1.8;">
+                      <strong>Linux:</strong><br>
+                      1️⃣ Open your file manager<br>
+                      2️⃣ Navigate to your project folder<br>
+                      3️⃣ Copy the path from address bar<br>
+                      4️⃣ Or right-click → Properties → copy location<br>
+                      5️⃣ Come back here and paste
+                    </div>
+                  `;
+                  example = '/home/username/projects/myapp';
                 }
                 
                 const helpHTML = `
-                  <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 40px; margin-bottom: 16px;">📂</div>
-                    <div style="font-size: 14px; color: #64748b; line-height: 1.6;">
-                      ${instructions}
+                  <div style="padding: 20px;">
+                    ${instructions}
+                    <div style="background: #f1f5f9; padding: 12px; margin-top: 16px; border-radius: 6px; font-family: monospace; font-size: 11px; color: #64748b;">
+                      Example: ${example}
                     </div>
                   </div>
                 `;
