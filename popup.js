@@ -25,6 +25,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   daemonConnected = await checkDaemonConnection();
   console.log('Daemon connection status:', daemonConnected);
   
+  // Load running servers from storage
+  chrome.storage.local.get(['runningServers'], (result) => {
+    if (result.runningServers) {
+      // Convert array back to Map
+      runningServers = new Map(result.runningServers);
+      updateServerManagement();
+    }
+  });
+  
   // Update daemon status badge
   function updateDaemonStatusBadge(connected) {
     const badge = document.getElementById('daemonStatus');
@@ -38,6 +47,110 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   updateDaemonStatusBadge(daemonConnected);
+
+  // Server Management
+  let runningServers = new Map(); // Track running servers: { port => { name, command, pid, cwd } }
+  
+  function updateServerManagement() {
+    const serverMgmt = document.getElementById('serverManagement');
+    const serverList = document.getElementById('serverList');
+    const serverCount = document.getElementById('serverCount');
+    
+    if (runningServers.size > 0) {
+      serverMgmt.style.display = 'block';
+      serverCount.textContent = runningServers.size;
+      
+      // Build server list HTML
+      let html = '';
+      for (const [port, server] of runningServers) {
+        html += `
+          <div class="server-item" data-port="${port}">
+            <div class="server-info">
+              <div class="server-name">
+                <span>${server.name}</span>
+                <span class="server-status running">Running</span>
+              </div>
+              <div class="server-details">
+                <span>📍 localhost:${port}</span>
+                <span>📂 ${server.cwd.substring(server.cwd.lastIndexOf('\\\\') + 1)}</span>
+              </div>
+            </div>
+            <div class="server-actions">
+              <button class="server-btn server-btn-view" data-action="view" data-port="${port}">🌐 Open</button>
+              <button class="server-btn server-btn-restart" data-action="restart" data-port="${port}">🔄</button>
+              <button class="server-btn server-btn-stop" data-action="stop" data-port="${port}">⏹️</button>
+            </div>
+          </div>
+        `;
+      }
+      serverList.innerHTML = html;
+      serverList.classList.add('expanded');
+      
+      // Add event listeners to buttons
+      document.querySelectorAll('.server-btn').forEach(btn => {
+        btn.addEventListener('click', handleServerAction);
+      });
+    } else {
+      serverMgmt.style.display = 'none';
+    }
+  }
+  
+  async function handleServerAction(e) {
+    const action = e.currentTarget.getAttribute('data-action');
+    const port = parseInt(e.currentTarget.getAttribute('data-port'));
+    const server = runningServers.get(port);
+    
+    if (!server) return;
+    
+    if (action === 'view') {
+      // Open in new tab
+      chrome.tabs.create({ url: `http://localhost:${port}` });
+    } else if (action === 'stop') {
+      // Stop server via daemon
+      if (daemonConnected) {
+        try {
+          const ws = new WebSocket('ws://localhost:5055/ws');
+          ws.onopen = () => {
+            ws.send(JSON.stringify({
+              type: 'stop_server',
+              data: { port: port, pid: server.pid }
+            }));
+            ws.close();
+          };
+          
+          // Remove from list
+          runningServers.delete(port);
+          updateServerManagement();
+          
+          // Save to storage
+          chrome.storage.local.set({ runningServers: Array.from(runningServers.entries()) });
+          
+        } catch (error) {
+          console.error('Failed to stop server:', error);
+        }
+      }
+    } else if (action === 'restart') {
+      // Restart server
+      if (daemonConnected) {
+        // Stop then start
+        handleServerAction({ currentTarget: { getAttribute: (k) => k === 'data-action' ? 'stop' : port.toString() }});
+        setTimeout(() => {
+          // Re-execute start command
+          executeCommandViaDaemon(server.command, server.cwd, port);
+        }, 1000);
+      }
+    }
+  }
+  
+  // Toggle server list
+  const toggleServersBtn = document.getElementById('toggleServers');
+  const serverListEl = document.getElementById('serverList');
+  if (toggleServersBtn) {
+    toggleServersBtn.addEventListener('click', () => {
+      serverListEl.classList.toggle('expanded');
+      toggleServersBtn.classList.toggle('expanded');
+    });
+  }
 
   // Get current tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -393,6 +506,21 @@ document.addEventListener('DOMContentLoaded', async () => {
               
               if (response.type === 'command_started') {
                 // Command started successfully
+                
+                // Add server to running servers Map
+                runningServers.set(port, {
+                  name: selectedServerType.name,
+                  command: command,
+                  pid: response.pid,
+                  cwd: cwd
+                });
+                
+                // Update server management UI
+                updateServerManagement();
+                
+                // Save to storage for persistence
+                chrome.storage.local.set({ runningServers: Array.from(runningServers.entries()) });
+                
                 setTimeout(() => {
                   document.getElementById('customModal').classList.remove('active');
                   
