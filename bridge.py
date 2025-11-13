@@ -330,6 +330,131 @@ async def websocket_endpoint(websocket: WebSocket):
                         "timestamp": datetime.now().isoformat()
                     }, websocket)
             
+            elif message_type == "shutdown":
+                # Shutdown request from extension
+                print("🛑 Shutdown requested via WebSocket")
+                
+                await manager.send_personal_message({
+                    "type": "shutdown_ack",
+                    "message": "Shutdown initiated",
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+                # Close all connections and exit
+                for connection in manager.active_connections.copy():
+                    try:
+                        await connection.close()
+                    except:
+                        pass
+                
+                # Exit the bridge process
+                import sys
+                sys.exit(0)
+            
+            elif message_type == "auto_detect_project":
+                # Auto-detect project type from folder path
+                print(f"🔍 Auto-detect project request received")
+                detect_data = data.get('data', {})
+                project_path = detect_data.get('path', '')
+                
+                print(f"   Scanning: {project_path}")
+                
+                try:
+                    import os
+                    import json
+                    
+                    detected_type = "Unknown"
+                    detected_command = "npm run dev"
+                    detected_port = 3000
+                    detected_venv = None
+                    
+                    # Check for package.json (Node.js project)
+                    package_json = os.path.join(project_path, 'package.json')
+                    if os.path.exists(package_json):
+                        with open(package_json, 'r') as f:
+                            pkg = json.load(f)
+                            scripts = pkg.get('scripts', {})
+                            
+                            if 'dev' in scripts:
+                                detected_command = 'npm run dev'
+                                detected_type = 'Node.js (npm)'
+                                # Detect Vite (port 5173)
+                                if 'vite' in scripts.get('dev', '').lower():
+                                    detected_port = 5173
+                                    detected_type = 'Vite'
+                            elif 'start' in scripts:
+                                detected_command = 'npm start'
+                                detected_type = 'Node.js (npm)'
+                            
+                            # Check if using yarn/pnpm
+                            if os.path.exists(os.path.join(project_path, 'yarn.lock')):
+                                detected_command = detected_command.replace('npm', 'yarn')
+                                detected_type = detected_type.replace('npm', 'yarn')
+                            elif os.path.exists(os.path.join(project_path, 'pnpm-lock.yaml')):
+                                detected_command = detected_command.replace('npm', 'pnpm')
+                                detected_type = detected_type.replace('npm', 'pnpm')
+                    
+                    # Check for Python virtual environment
+                    venv_paths = ['.venv', 'venv', 'env']
+                    for venv_name in venv_paths:
+                        venv_path = os.path.join(project_path, venv_name)
+                        if os.path.isdir(venv_path):
+                            detected_venv = venv_name
+                            break
+                    
+                    # Check for Python project files
+                    if os.path.exists(os.path.join(project_path, 'manage.py')):
+                        # Django project
+                        detected_type = 'Django'
+                        if detected_venv:
+                            if platform.system() == 'Windows':
+                                detected_command = f'{detected_venv}\\Scripts\\python.exe manage.py runserver'
+                            else:
+                                detected_command = f'{detected_venv}/bin/python manage.py runserver'
+                        else:
+                            detected_command = 'python manage.py runserver'
+                        detected_port = 8000
+                    
+                    elif os.path.exists(os.path.join(project_path, 'app.py')) or \
+                         os.path.exists(os.path.join(project_path, 'main.py')):
+                        # Flask/FastAPI project
+                        detected_type = 'Python (Flask/FastAPI)'
+                        main_file = 'app.py' if os.path.exists(os.path.join(project_path, 'app.py')) else 'main.py'
+                        
+                        if detected_venv:
+                            if platform.system() == 'Windows':
+                                detected_command = f'{detected_venv}\\Scripts\\python.exe {main_file}'
+                            else:
+                                detected_command = f'{detected_venv}/bin/python {main_file}'
+                        else:
+                            detected_command = f'python {main_file}'
+                        detected_port = 5000
+                    
+                    print(f"✅ Detected: {detected_type}")
+                    print(f"   Command: {detected_command}")
+                    print(f"   Port: {detected_port}")
+                    if detected_venv:
+                        print(f"   Virtual Env: {detected_venv}")
+                    
+                    await manager.send_personal_message({
+                        "type": "project_detected",
+                        "data": {
+                            "projectType": detected_type,
+                            "command": detected_command,
+                            "port": detected_port,
+                            "venv": detected_venv
+                        },
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+                    
+                except Exception as e:
+                    print(f"❌ Auto-detect failed: {e}")
+                    await manager.send_personal_message({
+                        "type": "error",
+                        "message": f"Failed to detect project type: {str(e)}",
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+            
             elif message_type == "broadcast":
                 # Broadcast to all connected clients
                 await manager.broadcast({
