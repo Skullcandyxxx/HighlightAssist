@@ -19,12 +19,17 @@ a = Analysis(
         ('core/notifier.py', 'core'),
         ('core/health_server.py', 'core'),
         ('core/bridge_monitor.py', 'core'),
+        ('core/project_manager.py', 'core'),
         ('bridge.py', '.'),
+        ('web_dashboard.py', '.'),
+        ('dashboard/index.html', 'dashboard'),
         # tray_icon.py is imported as a module, NOT a data file!
     ],
     hiddenimports=[
         # Core dependencies
         'fastapi',
+        'fastapi.responses',
+        'fastapi.templating',
         'uvicorn',
         'uvicorn.logging',
         'uvicorn.loops',
@@ -37,18 +42,38 @@ a = Analysis(
         'uvicorn.lifespan',
         'uvicorn.lifespan.on',
         'psutil',  # Process monitoring
-        # Standard library for health_server.py
+        'websockets',
+        'websockets.client',
+        'websockets.server',
+        # HTTP server for health checks
         'http.server',
         'http',
+        # Jinja2 templating (complete)
+        'jinja2',
+        'jinja2.loaders',
+        'jinja2.runtime',
+        'jinja2.compiler',
+        'jinja2.filters',
+        'jinja2.tests',
+        'jinja2.utils',
+        # Starlette (FastAPI dependency)
+        'starlette',
+        'starlette.applications',
+        'starlette.routing',
+        'starlette.responses',
+        'starlette.requests',
+        'starlette.websockets',
+        'starlette.templating',
+        # Pydantic (FastAPI dependency)
+        'pydantic',
+        'pydantic.fields',
         # GUI libraries
         'tkinter',  # Status window
         'tkinter.ttk',
-        # Platform-specific notification libraries (optional - code handles gracefully if missing)
-        # 'win10toast',  # Windows only
-        # 'notify2',     # Linux only  
-        # 'pync',        # macOS only
+        # Platform-specific notification libraries (optional)
         'plyer',         # Cross-platform fallback
         'pystray',       # System tray
+        'PIL',
         'PIL.Image',
         'PIL.ImageDraw',
         'PIL.ImageFont',
@@ -58,6 +83,8 @@ a = Analysis(
         'core.notifier',
         'core.health_server',
         'core.bridge_monitor',
+        'core.project_manager',
+        'web_dashboard',
     ],
     hookspath=[],
     runtime_hooks=[],

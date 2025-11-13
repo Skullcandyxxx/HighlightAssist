@@ -149,9 +149,13 @@ class HighlightAssistTray:
             
             # === UTILITIES ===
             pystray.MenuItem(
-                'Status',
-                self._on_status,
+                '🌐 Open Dashboard',
+                self._on_open_dashboard,
                 default=True  # Double-click action
+            ),
+            pystray.MenuItem(
+                'Status',
+                self._on_status
             ),
             pystray.MenuItem(
                 'Open Logs',
@@ -199,12 +203,23 @@ class HighlightAssistTray:
                     'managed': True
                 }
             
-            # Scan for external servers with longer timeout
+            # Scan for external servers with longer timeout (try both IPv4 and IPv6)
             def is_port_open(p):
+                # Try IPv4 first
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.settimeout(0.5)  # Increased from 0.2s
-                        result = s.connect_ex(('localhost', p))
+                        result = s.connect_ex(('127.0.0.1', p))
+                        if result == 0:
+                            return True
+                except:
+                    pass
+                
+                # Try IPv6 if IPv4 failed
+                try:
+                    with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+                        s.settimeout(0.5)
+                        result = s.connect_ex(('::1', p))
                         return result == 0
                 except:
                     return False
@@ -227,22 +242,22 @@ class HighlightAssistTray:
             
             # Add running servers section
             if detected_servers:
-                items.append(pystray.MenuItem('[RUNNING SERVERS]', lambda i, it: None, enabled=False))
+                items.append(pystray.MenuItem('═══ RUNNING SERVERS ═══', lambda i, it: None, enabled=False))
                 
                 for port in sorted(detected_servers.keys()):
                     info = detected_servers[port]
                     name = info['name']
                     managed = info['managed']
                     
-                    # Update status for managed servers
+                    # Update status for managed servers - use Unicode symbols
                     if managed and is_port_open(port):
                         self.running_servers[port]['status'] = 'running'
-                        status_icon = '[GREEN]'
+                        status_icon = '🟢'  # Green circle
                     elif managed:
                         self.running_servers[port]['status'] = 'starting'
-                        status_icon = '[YELLOW]'
+                        status_icon = '🟡'  # Yellow circle
                     else:
-                        status_icon = '[GREEN]'
+                        status_icon = '🟢'  # Green circle for external servers
                     
                     if managed:
                         label = f"  {status_icon} {name} :{port} (Stop)"
@@ -265,7 +280,7 @@ class HighlightAssistTray:
                 stopped_projects = [p for p in projects if p.get('dev_port') and p.get('dev_port') not in detected_servers]
                 
                 if stopped_projects:
-                    items.append(pystray.MenuItem('[START SERVER]', lambda i, it: None, enabled=False))
+                    items.append(pystray.MenuItem('═══ START SERVER ═══', lambda i, it: None, enabled=False))
                     
                     for project in stopped_projects:
                         name = project.get('name', 'Unknown')[:30]
@@ -284,11 +299,11 @@ class HighlightAssistTray:
             current_time = datetime.datetime.now().strftime("%H:%M:%S")
             
             items.append(pystray.Menu.SEPARATOR)
-            items.append(pystray.MenuItem('[ACTIONS]', lambda i, it: None, enabled=False))
-            items.append(pystray.MenuItem('  Scan for Projects...', self._on_scan_projects_quick))
-            items.append(pystray.MenuItem('  Scan All Ports (3000-9000)', self._on_scan_all_ports))
-            items.append(pystray.MenuItem(f'  Last updated: {current_time}', lambda i, it: None, enabled=False))
-            items.append(pystray.MenuItem('  (Menu auto-refreshes)', lambda i, it: None, enabled=False))
+            items.append(pystray.MenuItem('═══ ACTIONS ═══', lambda i, it: None, enabled=False))
+            items.append(pystray.MenuItem('  🔍 Scan for Projects...', self._on_scan_projects_quick))
+            items.append(pystray.MenuItem('  🌐 Scan All Ports (3000-9000)', self._on_scan_all_ports))
+            items.append(pystray.MenuItem(f'  🕒 Updated: {current_time}', lambda i, it: None, enabled=False))
+            items.append(pystray.MenuItem('  ⟳ Menu auto-refreshes', lambda i, it: None, enabled=False))
             
             return items if items else [pystray.MenuItem('No projects found', lambda i, it: None, enabled=False)]
             
@@ -578,12 +593,22 @@ class HighlightAssistTray:
                 self.notifier.notify('HighlightAssist', f'Cannot start {name} - missing port or path')
                 return
             
-            # Check if server is already running
+            # Check if server is already running (try both IPv4 and IPv6)
             def is_port_open(port):
+                # Try IPv4
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.settimeout(0.5)
-                        return s.connect_ex(('localhost', port)) == 0
+                        if s.connect_ex(('127.0.0.1', port)) == 0:
+                            return True
+                except:
+                    pass
+                
+                # Try IPv6
+                try:
+                    with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+                        s.settimeout(0.5)
+                        return s.connect_ex(('::1', port)) == 0
                 except:
                     return False
             
@@ -814,6 +839,13 @@ class HighlightAssistTray:
                 os.system(f'open "{log_dir}"')
             else:
                 os.system(f'xdg-open "{log_dir}"')
+    
+    def _on_open_dashboard(self, icon, item):
+        """Open web dashboard in default browser"""
+        import webbrowser
+        dashboard_url = 'http://127.0.0.1:9999'
+        webbrowser.open(dashboard_url)
+        self.notifier.notify('HighlightAssist', 'Opening dashboard...')
     
     def _on_exit(self, icon, item):
         """Exit application"""
