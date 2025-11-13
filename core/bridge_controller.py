@@ -47,16 +47,25 @@ class BridgeController:
                 sys.executable, '-m', 'uvicorn', 'bridge:app',
                 '--host', '127.0.0.1',
                 '--port', str(self.port),
-                '--log-level', 'warning'
+                '--log-level', 'info'  # Changed from warning to info to see startup messages
             ]
             
-            kwargs = {'cwd': str(self._script_dir)}
+            # Setup logging for bridge output
+            log_dir = self._script_dir / 'logs'
+            log_dir.mkdir(exist_ok=True)
+            bridge_log = log_dir / 'bridge.log'
+            
+            kwargs = {
+                'cwd': str(self._script_dir),
+                'stdout': open(bridge_log, 'a', encoding='utf-8'),
+                'stderr': subprocess.STDOUT  # Merge stderr into stdout
+            }
             if sys.platform.startswith('win'):
                 # Hide console window on Windows
                 kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
             
             self._process = subprocess.Popen(cmd, **kwargs)
-            logger.info('Bridge process started (PID: %d)', self._process.pid)
+            logger.info('Bridge process started (PID: %d), logging to %s', self._process.pid, bridge_log)
             
             # Wait for bridge to be ready
             start_time = time.time()
