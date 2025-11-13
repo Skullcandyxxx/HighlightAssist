@@ -276,6 +276,60 @@ async def websocket_endpoint(websocket: WebSocket):
                         "timestamp": datetime.now().isoformat()
                     }, websocket)
             
+            elif message_type == "stop_server":
+                # Stop a running server process
+                print(f"🛑 Stop server request received")
+                stop_data = data.get('data', {})
+                pid = stop_data.get('pid')
+                port = stop_data.get('port')
+                
+                print(f"   PID: {pid}")
+                print(f"   Port: {port}")
+                
+                try:
+                    import subprocess
+                    import platform
+                    import signal
+                    
+                    is_windows = platform.system() == 'Windows'
+                    
+                    if is_windows:
+                        # Windows: Use taskkill to stop process tree
+                        subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
+                                     capture_output=True, 
+                                     check=False)
+                        print(f"✅ Process {pid} stopped (Windows taskkill)")
+                    else:
+                        # Linux/macOS: Send SIGTERM then SIGKILL
+                        try:
+                            os.kill(pid, signal.SIGTERM)
+                            # Wait briefly, then force kill if needed
+                            import time
+                            time.sleep(0.5)
+                            os.kill(pid, signal.SIGKILL)
+                            print(f"✅ Process {pid} stopped (Unix kill)")
+                        except ProcessLookupError:
+                            print(f"⚠️ Process {pid} already terminated")
+                    
+                    await manager.send_personal_message({
+                        "type": "server_stopped",
+                        "pid": pid,
+                        "port": port,
+                        "success": True,
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+                    
+                except Exception as e:
+                    print(f"❌ Failed to stop server: {e}")
+                    await manager.send_personal_message({
+                        "type": "server_stopped",
+                        "pid": pid,
+                        "port": port,
+                        "success": False,
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+            
             elif message_type == "broadcast":
                 # Broadcast to all connected clients
                 await manager.broadcast({
