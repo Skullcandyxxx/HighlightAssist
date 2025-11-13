@@ -19,18 +19,20 @@ AppSupportURL=https://github.com/Skullcandyxxx/HighlightAssist/issues
 AppUpdatesURL=https://github.com/Skullcandyxxx/HighlightAssist/releases
 AppContact=skullcandyxxx@github.com
 AppCopyright=© {#MyAppPublisher} 2025
-; Allow user to choose installation directory
+; Installation settings
 DefaultDirName={autopf}\HighlightAssist
-; Show directory selection page
-DisableDirPage=no
+DisableDirPage=auto
 DefaultGroupName=HighlightAssist
 DisableProgramGroupPage=yes
+AllowNoIcons=yes
 LicenseFile=LICENSE
 InfoBeforeFile=installer-assets\INFO_BEFORE.txt
-InfoAfterFile=installer-assets\INFO_AFTER.txt
-; No admin required - installs for current user
+; Professional installer settings
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+CloseApplications=yes
+RestartApplications=no
+; Output settings
 OutputDir=installers
 OutputBaseFilename=HighlightAssist-Setup-v{#MyAppVersion}
 #if FileExists('icons\\icon128.ico')
@@ -38,12 +40,13 @@ UninstallDisplayIcon={app}\icons\icon128.ico
 #else
 UninstallDisplayIcon={uninstallexe}
 #endif
-// Use ICO file for Setup icon if available (ISCC requires .ico). Fall back to no icon when missing.
 #if FileExists('icons\\icon128.ico')
 SetupIconFile=icons\\icon128.ico
 #endif
-Compression=lzma
+; Compression
+Compression=lzma2/max
 SolidCompression=yes
+; Wizard appearance
 WizardStyle=modern
 WizardResizable=yes
 WizardSizePercent=110
@@ -51,13 +54,23 @@ WizardImageStretch=yes
 WizardImageAlphaFormat=premultiplied
 WizardImageBackColor=clWhite
 WizardSmallImageBackColor=clWhite
-// Wizard images are optional in CI; only set them if the files exist
 #if FileExists('installer-wizard-image.bmp')
 WizardImageFile=installer-wizard-image.bmp
 #endif
 #if FileExists('installer-wizard-small.bmp')
 WizardSmallImageFile=installer-wizard-small.bmp
 #endif
+; Uninstall settings
+UninstallDisplayName={#MyAppName} {#MyAppVersion}
+UninstallFilesDir={app}\uninst
+CreateUninstallRegKey=yes
+; Version information
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription=HighlightAssist Daemon Installer
+VersionInfoCopyright=© {#MyAppPublisher} 2025
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -94,11 +107,90 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\HighlightAssist"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "HighlightAssist Daemon"
 
 [Run]
-; Check if Python is available and install dependencies
-Filename: "{cmd}"; Parameters: "/c python -m pip install --upgrade pip"; StatusMsg: "Updating pip (optional - skipped if Python not found)..."; Flags: runhidden skipifdoesntexist
-Filename: "{cmd}"; Parameters: "/c python -m pip install -r ""{app}\requirements.txt"""; StatusMsg: "Installing Python dependencies (optional)..."; Flags: runhidden skipifdoesntexist
 ; Start the daemon after installation
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch HighlightAssist Daemon now"; Flags: nowait postinstall skipifsilent; WorkingDir: "{app}"
+
+[Code]
+var
+  IsUpgrade: Boolean;
+  IsSilentUpgrade: Boolean;
+
+function InitializeSetup(): Boolean;
+var
+  UninstallKey: String;
+  InstalledVersion: String;
+  CurrentVersion: String;
+begin
+  Result := True;
+  IsUpgrade := False;
+  IsSilentUpgrade := False;
+  CurrentVersion := '{#MyAppVersion}';
+  
+  // Check if already installed
+  UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{{E8F9A2B1-4C3D-5E6F-7A8B-9C0D1E2F3A4B}_is1';
+  
+  if RegQueryStringValue(HKCU, UninstallKey, 'DisplayVersion', InstalledVersion) then
+  begin
+    IsUpgrade := True;
+    
+    // Compare versions
+    if InstalledVersion = CurrentVersion then
+    begin
+      // Same version - offer repair
+      if MsgBox('HighlightAssist ' + InstalledVersion + ' is already installed.' + #13#13 + 
+                'Do you want to repair this installation?', 
+                mbConfirmation, MB_YESNO) = IDYES then
+      begin
+        Result := True;
+      end
+      else
+      begin
+        Result := False;
+      end;
+    end
+    else
+    begin
+      // Different version - offer upgrade
+      if MsgBox('HighlightAssist ' + InstalledVersion + ' is currently installed.' + #13#13 + 
+                'Do you want to upgrade to version ' + CurrentVersion + '?', 
+                mbConfirmation, MB_YESNO) = IDYES then
+      begin
+        Result := True;
+      end
+      else
+      begin
+        Result := False;
+      end;
+    end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    if IsUpgrade then
+    begin
+      // Stop running daemon before upgrade
+      Exec('cmd.exe', '/c taskkill /F /IM "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end;
+  end;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  
+  // Skip directory page on upgrades (use existing directory)
+  if IsUpgrade and (PageID = wpSelectDir) then
+    Result := True;
+    
+  // Skip ready page if silent upgrade
+  if IsSilentUpgrade and (PageID = wpReady) then
+    Result := True;
+end;
 
 [Registry]
 ; Auto-start with Windows (if task selected)
