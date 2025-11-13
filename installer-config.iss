@@ -77,7 +77,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart"; Description: "Start automatically when Windows starts (tray icon)"; GroupDescription: "Service Options:"; Flags: checked
+Name: "autostart"; Description: "Start automatically when Windows starts (tray icon)"; GroupDescription: "Service Options:"
 Name: "openlogsfolder"; Description: "Open logs folder after installation (for developers)"; GroupDescription: "Developer Options:"; Flags: unchecked
 
 [Files]
