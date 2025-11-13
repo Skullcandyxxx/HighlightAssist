@@ -343,6 +343,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         ✅ Enables server management: start, stop, restart localhost servers<br>
         ✅ Auto-starts with your computer - no manual launch needed
       </div>
+      
+      ${platformName === 'Windows' ? `
+      <div class="modal-warning" style="margin-top: 12px; padding: 10px; background: rgba(251, 191, 36, 0.1); border-left: 3px solid #fbbf24; border-radius: 4px; font-size: 12px;">
+        <strong>⚠️ Windows SmartScreen Warning:</strong><br>
+        When you run the installer, Windows will show "Windows protected your PC".<br>
+        <strong>This is normal for unsigned apps.</strong><br>
+        <br>
+        <strong>To install:</strong><br>
+        1️⃣ Click <strong>"More info"</strong> link<br>
+        2️⃣ Click <strong>"Run anyway"</strong> button<br>
+        3️⃣ Continue with installation
+      </div>
+      ` : ''}
     `;
     
     const result = await showCustomModal({

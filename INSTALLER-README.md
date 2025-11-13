@@ -85,15 +85,50 @@ The GitHub workflow now auto-generates gradient BMPs with typography. To supply 
 - Replace `installer-wizard-image.bmp` (164 × 314) and `installer-wizard-small.bmp` (55 × 58) with custom designs.
 - Or tweak the `Create installer images` step inside `.github/workflows/build-installer.yml` to draw different gradients, icons, or brand colors.
 
+## Windows SmartScreen Warning
+
+**Users will see "Windows protected your PC" warning** because the installer is not digitally signed.
+
+### For Users - How to Install
+1. Click **"More info"** link on the blue warning screen
+2. Click **"Run anyway"** button that appears
+3. Continue with normal installation
+
+This is a standard Windows security feature for unsigned applications. The app is safe - the source code is open and reviewed.
+
+### For Developers - How to Avoid the Warning
+
+#### Option 1: Code Signing Certificate (Recommended for Production)
+- **Cost:** $70-400/year from providers like DigiCert, Sectigo, or GlobalSign
+- **Process:**
+  1. Purchase EV or Standard Code Signing Certificate
+  2. Install certificate on build machine
+  3. Sign the installer with `signtool.exe`:
+     ```powershell
+     & "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" sign /f "path\to\cert.pfx" /p "password" /t http://timestamp.digicert.com "installers\HighlightAssist-Setup-v*.exe"
+     ```
+  4. Update GitHub Actions workflow to sign during build
+
+#### Option 2: Build Reputation (Free but Slow)
+- Windows SmartScreen uses reputation-based protection
+- After 1000+ successful downloads over 2-3 months, warning may disappear
+- No action required, just let users install naturally
+
+#### Option 3: Document Workaround (Immediate)
+- Add clear instructions in README and website
+- Include screenshots showing "More info" → "Run anyway" steps
+- Explain this is normal for open-source unsigned apps
+
 ## Testing
 
 Before releasing, test the installer:
 1. Build locally: `.\build-windows-installer.ps1`
 2. Run the installer on a clean Windows machine
-3. Verify Python check works
-4. Verify dependencies install correctly
-5. Check auto-start functionality
-6. Test uninstallation
+3. **Expect SmartScreen warning** - test the "More info" → "Run anyway" flow
+4. Verify Python check works
+5. Verify dependencies install correctly
+6. Check auto-start functionality
+7. Test uninstallation
 
 ## Troubleshooting
 
