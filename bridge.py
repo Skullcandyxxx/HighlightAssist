@@ -331,12 +331,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     }, websocket)
             
             elif message_type == "shutdown":
-                # Shutdown request from extension
-                print("🛑 Shutdown requested via WebSocket")
+                # Shutdown request from extension (bridge only)
+                print("🛑 Bridge shutdown requested via WebSocket")
                 
                 await manager.send_personal_message({
                     "type": "shutdown_ack",
-                    "message": "Shutdown initiated",
+                    "message": "Bridge shutting down",
                     "timestamp": datetime.now().isoformat()
                 }, websocket)
                 
@@ -350,6 +350,45 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Exit the bridge process
                 import sys
                 sys.exit(0)
+            
+            elif message_type == "shutdown_service_manager":
+                # Shutdown the entire service manager (not just bridge)
+                print("🛑 Service manager shutdown requested via WebSocket")
+                
+                await manager.send_personal_message({
+                    "type": "shutdown_ack",
+                    "message": "Service manager shutting down",
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+                # Send shutdown command to service manager via TCP
+                try:
+                    import socket
+                    import json
+                    
+                    # Connect to service manager TCP control port
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(2)
+                    sock.connect(('localhost', 5054))
+                    
+                    # Send shutdown command
+                    command = json.dumps({'action': 'shutdown'}) + '\n'
+                    sock.sendall(command.encode('utf-8'))
+                    
+                    # Receive response
+                    response = sock.recv(1024).decode('utf-8')
+                    print(f"Service manager response: {response}")
+                    
+                    sock.close()
+                    
+                    # The service manager will stop both itself and the bridge
+                    print("✅ Shutdown command sent to service manager")
+                    
+                except Exception as e:
+                    print(f"❌ Failed to shutdown service manager: {e}")
+                    # If TCP fails, just exit the bridge
+                    import sys
+                    sys.exit(0)
             
             elif message_type == "auto_detect_project":
                 # Auto-detect project type from folder path

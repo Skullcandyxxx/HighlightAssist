@@ -245,14 +245,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.innerHTML = 'Stopping... ⏳';
     
     try {
-      // Use WebSocket to send shutdown command
+      // Send shutdown to service manager via TCP control (port 5054)
+      // Use WebSocket bridge to relay the shutdown command
       const ws = new WebSocket('ws://localhost:5055/ws');
       let shutdownSent = false;
       
       ws.onopen = () => {
-        console.log('✅ WebSocket connected, sending shutdown...');
+        console.log('✅ WebSocket connected, sending service manager shutdown...');
+        // Send command to stop the entire service manager (not just bridge)
         ws.send(JSON.stringify({
-          type: 'shutdown',
+          type: 'shutdown_service_manager',
           data: {}
         }));
         shutdownSent = true;
@@ -268,10 +270,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           showCustomModal({
             icon: '✅',
             title: 'Daemon Stopped',
-            body: '<div style="text-align: center; padding: 20px;">The daemon has been stopped successfully.</div>',
+            body: '<div style="text-align: center; padding: 20px;">The daemon service has been stopped successfully.</div>',
             buttons: [{ text: 'OK', value: true, primary: true }]
           });
-        }, 1500);
+        }, 2000); // Longer delay to ensure service manager stops
       };
       
       ws.onerror = (error) => {
