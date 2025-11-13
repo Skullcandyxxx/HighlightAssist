@@ -335,6 +335,7 @@ class HighlightAssistTray:
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f'Scan trigger error: {e}')
+        return True
     
     def _on_scan_all_ports(self, icon, item):
         """Comprehensive port scan 3000-9000 to find ALL running servers"""
@@ -386,6 +387,7 @@ class HighlightAssistTray:
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f'Scan trigger error: {e}')
+        return True
     
     def _on_open_browser(self, port: int):
         """Open external server in browser"""
@@ -397,6 +399,7 @@ class HighlightAssistTray:
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f'Error opening browser: {e}')
+        return True
     
     def _build_projects_items(self) -> list:
         """Build projects submenu items (returns list, not Menu)"""
@@ -513,7 +516,7 @@ class HighlightAssistTray:
             
             if port not in self.running_servers:
                 self.notifier.notify('HighlightAssist', f'{name} not found')
-                return
+                return True
             
             process = self.running_servers[port].get('process')
             if process:
@@ -548,6 +551,7 @@ class HighlightAssistTray:
             import logging
             logging.getLogger(__name__).error(f'Error stopping server: {e}')
             self.notifier.notify('HighlightAssist', f'Error stopping {name}')
+        return True
     
     def _on_scan_projects(self, icon, item):
         """Scan common directories for projects"""
@@ -572,6 +576,7 @@ class HighlightAssistTray:
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f'Scan trigger error: {e}')
+        return True
     
     def _on_open_project(self, project: dict):
         """Start dev server and open project in browser"""
@@ -730,6 +735,7 @@ class HighlightAssistTray:
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f'Open project error: {e}')
+        return True
     
     def _on_start(self, icon, item):
         """Start bridge server"""
@@ -749,6 +755,7 @@ class HighlightAssistTray:
             # Keep icon gray on error
             if self.icon:
                 self.icon.icon = self.create_icon_image('error')
+        return True
     
     def _on_stop(self, icon, item):
         """Stop bridge server"""
@@ -765,6 +772,7 @@ class HighlightAssistTray:
                 self.icon.icon = self.create_icon_image('idle')
         else:
             self.notifier.notify('HighlightAssist', f'Failed to stop: {result.get("error", "Unknown")}')
+        return True
     
     def _on_restart(self, icon, item):
         """Restart bridge server"""
@@ -779,11 +787,12 @@ class HighlightAssistTray:
             # Update to error state
             if self.icon:
                 self.icon.icon = self.create_icon_image('error')
+        return True
     
     def _on_toggle_autostart(self, icon, item):
         """Toggle auto-start bridge setting"""
         if not self.service_manager:
-            return
+            return True
         
         # Toggle the setting
         self.service_manager.auto_start_bridge = not self.service_manager.auto_start_bridge
@@ -795,6 +804,7 @@ class HighlightAssistTray:
         # Update menu (pystray will refresh the checked state)
         if self.icon:
             self.icon.update_menu()
+        return True
             
     def _on_status(self, icon, item):
         """Show status notification"""
@@ -825,6 +835,7 @@ class HighlightAssistTray:
                     
         except Exception as e:
             logger.exception(f'Error in _on_status: {e}')
+        return True
     
     def _on_open_logs(self, icon, item):
         """Open log directory"""
@@ -839,6 +850,7 @@ class HighlightAssistTray:
                 os.system(f'open "{log_dir}"')
             else:
                 os.system(f'xdg-open "{log_dir}"')
+        return True
     
     def _on_open_dashboard(self, icon, item):
         """Open web dashboard in default browser"""
@@ -846,6 +858,7 @@ class HighlightAssistTray:
         dashboard_url = 'http://127.0.0.1:9999'
         webbrowser.open(dashboard_url)
         self.notifier.notify('HighlightAssist', 'Opening dashboard...')
+        return True
     
     def _on_exit(self, icon, item):
         """Exit application"""
@@ -854,6 +867,7 @@ class HighlightAssistTray:
             self.bridge.stop()
         icon.stop()
         self._running = False
+        return True
     
     def run(self):
         """Start system tray icon (blocking)"""

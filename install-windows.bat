@@ -7,6 +7,16 @@ echo   HighlightAssist One-Time Setup
 echo ========================================
 echo.
 
+REM Run pre-installation checks (stops running service if needed)
+echo Running pre-installation checks...
+powershell -ExecutionPolicy Bypass -File "%~dp0pre-install-check.ps1"
+if errorlevel 1 (
+    echo.
+    echo [X] Pre-installation checks failed
+    pause
+    exit /b 1
+)
+
 REM Check Python
 python --version >nul 2>&1
 if errorlevel 1 (

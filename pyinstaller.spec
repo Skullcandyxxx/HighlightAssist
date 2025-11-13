@@ -4,13 +4,16 @@
 # Updated for OOP modular architecture
 import os
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
 
+# Collect ALL Jinja2 files (submodules, data files, binaries)
+jinja2_datas, jinja2_binaries, jinja2_hiddenimports = collect_all('jinja2')
 
 # --- Metadata for version info and AV trust ---
 a = Analysis(
     ['service_manager_v2.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=jinja2_binaries,  # Include Jinja2 binaries (DLLs if any)
     datas=[
         ('assets/icon-128.png', 'assets'),
         ('core/__init__.py', 'core'),
@@ -24,7 +27,7 @@ a = Analysis(
         ('web_dashboard.py', '.'),
         ('dashboard/index.html', 'dashboard'),
         # tray_icon.py is imported as a module, NOT a data file!
-    ],
+    ] + jinja2_datas,  # Add all Jinja2 data files (templates, etc.)
     hiddenimports=[
         # Core dependencies
         'fastapi',
@@ -48,14 +51,6 @@ a = Analysis(
         # HTTP server for health checks
         'http.server',
         'http',
-        # Jinja2 templating (complete)
-        'jinja2',
-        'jinja2.loaders',
-        'jinja2.runtime',
-        'jinja2.compiler',
-        'jinja2.filters',
-        'jinja2.tests',
-        'jinja2.utils',
         # Starlette (FastAPI dependency)
         'starlette',
         'starlette.applications',
@@ -85,7 +80,7 @@ a = Analysis(
         'core.bridge_monitor',
         'core.project_manager',
         'web_dashboard',
-    ],
+    ] + jinja2_hiddenimports,  # Add ALL Jinja2 hidden imports automatically
     hookspath=[],
     runtime_hooks=[],
     # Exclude only truly unused modules to avoid dependency issues

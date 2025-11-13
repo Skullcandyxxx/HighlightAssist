@@ -2,6 +2,7 @@
 fastapi
 uvicorn[standard]
 websockets
+jinja2  # Required for FastAPI templating (web dashboard)
 pystray
 Pillow
 plyer

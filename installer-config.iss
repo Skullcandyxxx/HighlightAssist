@@ -123,6 +123,35 @@ Filename: "{win}\explorer.exe"; Parameters: """{localappdata}\HighlightAssist\lo
 var
   IsUpgrade: Boolean;
   IsSilentUpgrade: Boolean;
+  ServiceWasRunning: Boolean;
+
+function IsServiceRunning(): Boolean;
+var
+  ResultCode: Integer;
+  TempFile: String;
+  OutputLines: TArrayOfString;
+  I: Integer;
+begin
+  Result := False;
+  TempFile := ExpandConstant('{tmp}\processcheck.txt');
+  
+  // Use tasklist to check if process is running
+  if Exec('cmd.exe', '/c tasklist /FI "IMAGENAME eq {#MyAppExeName}" /NH > "' + TempFile + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if LoadStringsFromFile(TempFile, OutputLines) then
+    begin
+      for I := 0 to GetArrayLength(OutputLines) - 1 do
+      begin
+        if Pos('{#MyAppExeName}', OutputLines[I]) > 0 then
+        begin
+          Result := True;
+          Break;
+        end;
+      end;
+    end;
+    DeleteFile(TempFile);
+  end;
+end;
 
 function InitializeSetup(): Boolean;
 var
@@ -133,7 +162,24 @@ begin
   Result := True;
   IsUpgrade := False;
   IsSilentUpgrade := False;
+  ServiceWasRunning := False;
   CurrentVersion := '{#MyAppVersion}';
+  
+  // Check if service is currently running
+  if IsServiceRunning() then
+  begin
+    ServiceWasRunning := True;
+    if not WizardSilent() then
+    begin
+      if MsgBox('HighlightAssist is currently running in the system tray.' + #13#13 +
+                'The installer will gracefully stop the service before installation.' + #13#13 +
+                'Continue?', mbConfirmation, MB_YESNO) <> IDYES then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  end;
   
   // Check if already installed
   UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{{E8F9A2B1-4C3D-5E6F-7A8B-9C0D1E2F3A4B}_is1';
@@ -177,13 +223,37 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
+  TcpCommand: String;
+  PowerShellScript: String;
 begin
   if CurStep = ssInstall then
   begin
     if IsUpgrade then
     begin
-      // Stop running daemon before upgrade
-      Exec('cmd.exe', '/c taskkill /F /IM "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      // Try graceful shutdown first via TCP command
+      Log('Attempting graceful shutdown via TCP...');
+      TcpCommand := 'try { ' +
+                    '$client = New-Object System.Net.Sockets.TcpClient(''localhost'', 5054); ' +
+                    '$stream = $client.GetStream(); ' +
+                    '$writer = New-Object System.IO.StreamWriter($stream); ' +
+                    '$writer.WriteLine(''{"action":"stop"}''); ' +
+                    '$writer.Flush(); ' +
+                    'Start-Sleep -Seconds 2; ' +
+                    '$client.Close(); ' +
+                    'Write-Host ''Graceful shutdown sent'' ' +
+                    '} catch { Write-Host ''TCP not responding'' }';
+      
+      Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "' + TcpCommand + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      
+      // Wait a moment for graceful shutdown
+      Sleep(2000);
+      
+      // Force stop if still running
+      Log('Force stopping any remaining processes...');
+      Exec('cmd.exe', '/c taskkill /F /IM "{#MyAppExeName}" 2>nul', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      
+      // Extra wait to ensure file handles are released
+      Sleep(1000);
     end;
   end;
 end;
@@ -201,16 +271,88 @@ begin
     Result := True;
 end;
 
+function InitializeUninstall(): Boolean;
+var
+  Response: Integer;
+begin
+  Result := True;
+  
+  // Check if service is running before uninstall
+  if IsServiceRunning() then
+  begin
+    if MsgBox('HighlightAssist is currently running.' + #13#13 +
+              'The uninstaller will stop the service before removing files.' + #13#13 +
+              'Continue with uninstall?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      Result := True;
+    end
+    else
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+  
+  // Ask about keeping user data
+  Response := MsgBox('Do you want to keep your personal data?' + #13#13 +
+                     'This includes:' + #13 +
+                     '  • Recent projects history (projects.json)' + #13 +
+                     '  • Service logs' + #13 +
+                     '  • Configuration settings' + #13#13 +
+                     'Choose YES to keep your data (for reinstalling later)' + #13 +
+                     'Choose NO to completely remove everything',
+                     mbConfirmation, MB_YESNOCANCEL);
+  
+  if Response = IDCANCEL then
+  begin
+    Result := False;  // Cancel uninstall
+  end
+  else if Response = IDYES then
+  begin
+    // User wants to keep data - set flag
+    SetEnvironmentVariable('HIGHLIGHTASSIST_KEEP_DATA', '1');
+  end
+  else
+  begin
+    // User wants to remove everything - clear flag
+    SetEnvironmentVariable('HIGHLIGHTASSIST_KEEP_DATA', '0');
+  end;
+end;
+
+procedure DeinitializeUninstall();
+var
+  KeepData: String;
+  DataFolder: String;
+begin
+  KeepData := GetEnv('HIGHLIGHTASSIST_KEEP_DATA');
+  DataFolder := ExpandConstant('{localappdata}\HighlightAssist');
+  
+  if KeepData = '1' then
+  begin
+    MsgBox('HighlightAssist has been uninstalled.' + #13#13 +
+           'Your personal data has been preserved at:' + #13 +
+           DataFolder + #13#13 +
+           'This data will be automatically restored if you reinstall HighlightAssist.' + #13#13 +
+           'To manually remove this data, delete the folder above.',
+           mbInformation, MB_OK);
+  end;
+end;
+
 [Registry]
 ; Auto-start with Windows (if task selected)
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssist"; ValueData: """{app}\{#MyAppExeName}"""; Tasks: autostart
 
 [UninstallRun]
-; Stop the daemon before uninstalling
-Filename: "{cmd}"; Parameters: "/c taskkill /F /IM ""{#MyAppExeName}"""; Flags: runhidden; RunOnceId: "StopDaemon"
+; Try graceful shutdown first via TCP
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ $client = New-Object System.Net.Sockets.TcpClient('localhost', 5054); $stream = $client.GetStream(); $writer = New-Object System.IO.StreamWriter($stream); $writer.WriteLine('{{\""action\"":\""stop\""}}'); $writer.Flush(); Start-Sleep -Seconds 2; $client.Close() }} catch {{ }}"""; Flags: runhidden; RunOnceId: "GracefulStop"
+; Force stop the daemon if still running
+Filename: "{cmd}"; Parameters: "/c timeout /t 2 /nobreak >nul & taskkill /F /IM ""{#MyAppExeName}"" 2>nul"; Flags: runhidden; RunOnceId: "ForceStopDaemon"
+; Conditional cleanup - only remove user data if user chose to
+Filename: "{cmd}"; Parameters: "/c if ""%HIGHLIGHTASSIST_KEEP_DATA%""==""0"" rmdir /s /q ""{localappdata}\HighlightAssist"""; Flags: runhidden; RunOnceId: "CleanupUserData"
 
 [UninstallDelete]
+; Always delete application files
 Type: filesandordirs; Name: "{app}"
-; Clean up logs folder
-Type: filesandordirs; Name: "{localappdata}\HighlightAssist"
+; User data is handled by UninstallRun based on user choice
+
 
