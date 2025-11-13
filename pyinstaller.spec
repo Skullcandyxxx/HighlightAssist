@@ -37,6 +37,9 @@ a = Analysis(
         'uvicorn.lifespan',
         'uvicorn.lifespan.on',
         'psutil',  # Process monitoring
+        # Standard library for health_server.py
+        'http.server',
+        'http',
         # Platform-specific notification libraries (optional - code handles gracefully if missing)
         # 'win10toast',  # Windows only
         # 'notify2',     # Linux only  
@@ -56,11 +59,12 @@ a = Analysis(
     hookspath=[],
     runtime_hooks=[],
     # Exclude common test and unused modules to reduce bundle size and AV flags
+    # NOTE: Do NOT exclude 'http' - health_server.py needs http.server
     excludes=[
         'tkinter', 'pytest', 'unittest', 'test', 'tests', 'pydoc', 'doctest',
-        'email', 'html', 'http', 'xml', 'xmlrpc', 'sqlite3', 'turtle', 'distutils',
+        'email', 'html', 'xml', 'xmlrpc', 'sqlite3', 'turtle', 'distutils',
         'setuptools', 'pkg_resources', 'idlelib', 'lib2to3', 'pdb', 'cProfile', 'profile',
-        'ensurepip', 'wsgiref', 'venv', 'asyncio', 'concurrent', 'multiprocessing',
+        'ensurepip', 'wsgiref', 'venv',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
