@@ -132,14 +132,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Detect platform
     const platform = navigator.platform.toLowerCase();
     let platformName = 'Windows';
-    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-v1.2.0-win64.zip';
+    // Correct filenames from GitHub Actions workflows
+    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-Windows-v1.2.0.zip';
     
     if (platform.includes('mac')) {
       platformName = 'macOS';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-v1.2.0-darwin.tar.gz';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-macOS-v1.2.0.tar.gz';
     } else if (platform.includes('linux')) {
       platformName = 'Linux';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-v1.2.0-linux.tar.gz';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-Linux-v1.2.0.tar.gz';
     }
     
     const installHTML = `

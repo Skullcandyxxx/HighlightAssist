@@ -137,6 +137,35 @@ class ServiceManager:
 
 
 if __name__ == '__main__':
-    import os  # Import needed for LOG_DIR calculation
-    manager = ServiceManager()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='HighlightAssist Service Manager')
+    parser.add_argument('--no-tray', action='store_true', help='Run in console mode without tray icon')
+    parser.add_argument('--console', action='store_true', help='Show console output (default: hidden when tray enabled)')
+    args = parser.parse_args()
+    
+    # Determine if we should use tray
+    use_tray = not args.no_tray
+    
+    # Hide console window on Windows if running with tray (unless --console specified)
+    if use_tray and not args.console and sys.platform.startswith('win'):
+        import ctypes
+        ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)  # SW_HIDE
+    
+    manager = ServiceManager(use_tray=use_tray)
+    
+    # Print startup banner if console visible
+    if args.console or not use_tray:
+        print("""
+╔═══════════════════════════════════════════════════════════╗
+║        HighlightAssist Service Manager v2.0               ║
+╚═══════════════════════════════════════════════════════════╝
+
+🎨 Mode: """ + ("System Tray" if use_tray else "Console") + """
+📍 TCP Control: Port 5054
+🌐 WebSocket Bridge: Port 5055 (starts on demand)
+""" + ("📍 Look for purple tray icon!" if use_tray else "🖥️  Console mode - Press Ctrl+C to stop") + """
+
+""")
+    
     manager.run()

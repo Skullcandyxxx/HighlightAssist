@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class BridgeController:
     """Manages the bridge server process lifecycle."""
     
-    def __init__(self, port: int = 5055, timeout: float = 3.0):
+    def __init__(self, port: int = 5055, timeout: float = 10.0):  # Increased from 3.0 to 10.0 seconds
         self.port = port
         self.timeout = timeout
         self._process: Optional[subprocess.Popen] = None
