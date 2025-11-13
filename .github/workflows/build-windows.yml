@@ -35,33 +35,38 @@ jobs:
         run: dir dist
         shell: powershell
 
-      - name: Copy installer files
+      - name: Install Inno Setup
         run: |
-          mkdir release
-          copy dist\HighlightAssist-Service-Manager.exe release\
-          copy install-windows.bat release\
-          copy bridge.py release\
-          copy service_manager_v2.py release\
-          xcopy /E /I core release\core
-          xcopy /E /I assets release\assets
-          dir release
-
-      - name: Create Windows ZIP package
-        run: |
-          $version = "${{ github.ref_name }}"
-          Compress-Archive -Path release\* -DestinationPath "HighlightAssist-Windows-$version.zip"
+          choco install innosetup -y
         shell: powershell
 
-      - name: Upload Windows artifacts
+      - name: Build Professional Installer
+        run: |
+          # Copy icon to expected location
+          mkdir -Force icons
+          copy assets\icon-128.png icons\icon128.png
+          
+          # Create installer assets
+          mkdir -Force installer-assets
+          
+          # Build installer with Inno Setup
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
+        shell: powershell
+
+      - name: List installer output
+        run: dir installers
+        shell: powershell
+
+      - name: Upload Professional Installer
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: HighlightAssist-Windows-*.zip
+          path: installers\HighlightAssist-Setup-*.exe
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: HighlightAssist-Windows-*.zip
+          files: installers\HighlightAssist-Setup-*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
