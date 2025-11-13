@@ -216,9 +216,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           const button = document.createElement('button');
           button.className = `modal-btn ${btn.primary ? 'modal-btn-primary' : 'modal-btn-secondary'}`;
           button.textContent = btn.text;
-          button.addEventListener('click', () => {
+          button.addEventListener('click', async () => {
+            // Execute onClick handler if provided (may be async)
+            if (btn.onClick) {
+              await btn.onClick();
+            }
+            // Close modal after onClick completes
             modal.classList.remove('active');
-            if (btn.onClick) btn.onClick();
             resolve(btn.value);
           });
           modalFooter.appendChild(button);
@@ -340,8 +344,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           text: `Download for ${platformName}`, 
           value: true, 
           primary: true,
-          onClick: () => {
-            chrome.tabs.create({ url: downloadLink });
+          onClick: async () => {
+            // Open download link in new tab
+            await chrome.tabs.create({ url: downloadLink });
+            // Small delay to ensure tab opens before modal closes
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
       ]
