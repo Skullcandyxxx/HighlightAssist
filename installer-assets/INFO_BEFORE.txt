@@ -1,28 +1,17 @@
-HighlightAssist Bridge Installer
-────────────────────────────────
+HighlightAssist Daemon - Installation
 
-Thank you for trying HighlightAssist Bridge — the secure desktop companion that lets the browser extension stream UI insights to your IDE.
+This installer will set up the HighlightAssist daemon service, which enables:
 
-Before you continue, please review the key terms below:
+✓ Automatic localhost server management from browser extension
+✓ Start, stop, and restart development servers (Vite, React, Next.js, etc.)
+✓ System tray integration for easy access
+✓ Auto-start with Windows (optional)
 
-• Requirements
-  - Windows 10 or newer with an active internet connection.
-  - Python 3.8+ installed globally and added to PATH (the installer will verify this).
-  - You must have permission to install software on this device.
+Requirements:
+- Python 3.8 or higher (will be verified during installation)
+- Windows 10/11 (64-bit recommended)
 
-• Privacy & Telemetry
-  - HighlightAssist Bridge runs locally and only relays UI metadata that you explicitly capture.
-  - No analytics, telemetry, or third-party calls are performed without your action.
-  - Log files stay on your machine in %LOCALAPPDATA%\HighlightAssist.
+Installation Location:
+By default, HighlightAssist installs to your user AppData folder, but you can choose a custom location on the next screen.
 
-• Security & Network Usage
-  - The bridge opens a localhost WebSocket (default port 5055). No public ports are exposed.
-  - Always close the bridge when you are finished sharing UI data with AI assistants.
-  - Review scripts before running them in regulated or air‑gapped environments.
-
-• Disclaimer
-  - HighlightAssist is provided "AS IS" without warranties of any kind.
-  - Skullcandyxxx is not liable for data loss or damages arising from misuse.
-  - Proceed only if these terms are acceptable to you and your organization.
-
-Continuing the setup means you acknowledge the above statements, accept the MIT License, and agree that you are installing HighlightAssist Bridge on an authorized system.
+Click Next to continue.
