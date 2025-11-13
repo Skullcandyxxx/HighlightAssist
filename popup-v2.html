@@ -476,6 +476,58 @@
         .install-note strong {
             font-weight: 600;
         }
+
+        /* Modal Styles */
+        .modal-subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            margin-top: 6px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+
+        .modal-info {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 2px solid #93c5fd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #1e40af;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -539,6 +591,9 @@
             <div class="actions">
                 <button class="btn btn-primary" id="startInspectBtn">
                     🎨 Start Inspect
+                </button>
+                <button class="btn btn-primary" id="startNewServerBtn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    ✨ Start New Server
                 </button>
                 <button class="btn btn-secondary" id="settingsBtn">
                     ⚙️ Settings

@@ -102,33 +102,46 @@ class BridgeMonitor:
     def _verify_process_alive(self):
         """Verify bridge process is actually running"""
         try:
-            if not self.bridge.pid:
-                return False
-            
-            import psutil
-            
-            # Check if process exists
-            if not psutil.pid_exists(self.bridge.pid):
-                logger.warning(f'Bridge PID {self.bridge.pid} no longer exists')
-                return False
-            
-            # Check if it's actually our process (not just same PID reused)
-            try:
-                proc = psutil.Process(self.bridge.pid)
-                # Check if process name contains 'python' or 'uvicorn'
-                name = proc.name().lower()
-                if 'python' not in name and 'uvicorn' not in name:
-                    logger.warning(f'Bridge PID {self.bridge.pid} is not python/uvicorn: {name}')
+            # Check if running in thread mode (in-process)
+            if hasattr(self.bridge, '_thread') and self.bridge._thread:
+                # Thread mode - check if thread is alive
+                if self.bridge._thread.is_alive():
+                    return True
+                else:
+                    logger.warning('Bridge thread is no longer alive')
                     return False
-            except psutil.NoSuchProcess:
+            
+            # Subprocess mode - check PID
+            if not self.bridge.pid:
+                # No thread and no PID - not running
                 return False
             
-            return True
+            try:
+                import psutil
+                
+                # Check if process exists
+                if not psutil.pid_exists(self.bridge.pid):
+                    logger.warning(f'Bridge PID {self.bridge.pid} no longer exists')
+                    return False
+                
+                # Check if it's actually our process (not just same PID reused)
+                try:
+                    proc = psutil.Process(self.bridge.pid)
+                    # Check if process name contains 'python' or 'uvicorn'
+                    name = proc.name().lower()
+                    if 'python' not in name and 'uvicorn' not in name:
+                        logger.warning(f'Bridge PID {self.bridge.pid} is not python/uvicorn: {name}')
+                        return False
+                except psutil.NoSuchProcess:
+                    return False
+                
+                return True
+                
+            except ImportError:
+                # psutil not available - fall back to simple check
+                logger.debug('psutil not available - using basic process check')
+                return self.bridge.is_running
             
-        except ImportError:
-            # psutil not available - fall back to simple check
-            logger.debug('psutil not available - using basic process check')
-            return self.bridge.is_running
         except Exception as e:
             logger.error(f'Error verifying process: {e}')
             return True  # Assume alive on error to avoid false positives
@@ -144,9 +157,9 @@ class BridgeMonitor:
         try:
             logger.info('🔄 Attempting to restart bridge...')
             
-            # Clean up zombie state
-            self.bridge.is_running = False
-            self.bridge.pid = None
+            # Stop bridge if still running (cleans up zombie state)
+            if self.bridge.is_running:
+                self.bridge.stop()
             
             # Restart bridge
             result = self.bridge.start()
