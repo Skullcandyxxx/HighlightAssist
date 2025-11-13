@@ -246,15 +246,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const platform = navigator.platform.toLowerCase();
     let platformName = 'Windows';
     let installSteps = '';
-    // Updated to v1.2.1 with proper installation instructions
-    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-Windows-v1.2.1.zip';
+    // Professional installer for Windows, packages for other platforms
+    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-Setup-v1.2.1.exe';
     
     if (platform.includes('mac')) {
       platformName = 'macOS';
       downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-macOS-v1.2.1.zip';
       installSteps = `
         <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
-          <li>Extract the downloaded ZIP file</li>
+          <li>Download and extract the ZIP file</li>
           <li>Open Terminal in the extracted folder</li>
           <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">chmod +x install-macos.sh</code></li>
           <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">./install-macos.sh</code></li>
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-Linux-v1.2.1.zip';
       installSteps = `
         <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
-          <li>Extract the downloaded ZIP file</li>
+          <li>Download and extract the ZIP file</li>
           <li>Open terminal in the extracted folder</li>
           <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">chmod +x install-linux.sh</code></li>
           <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">sudo ./install-linux.sh</code></li>
@@ -274,16 +274,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         </ol>
       `;
     } else {
-      // Windows
+      // Windows - Professional installer
       installSteps = `
         <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
-          <li>Extract the downloaded ZIP file</li>
-          <li>Right-click <strong>install-windows-service.ps1</strong></li>
-          <li>Select "Run with PowerShell"</li>
-          <li>Click "Yes" if prompted for admin rights</li>
-          <li>Daemon will install and auto-start with Windows</li>
-          <li>Look for tray icon (purple "H") in system tray</li>
+          <li><strong>Download</strong> the installer (HighlightAssist-Setup-v1.2.1.exe)</li>
+          <li><strong>Double-click</strong> the installer to start setup wizard</li>
+          <li><strong>Choose</strong> installation directory (or use default)</li>
+          <li><strong>Select options:</strong>
+            <ul style="margin: 4px 0; padding-left: 20px;">
+              <li>Create desktop shortcut (optional)</li>
+              <li>Start automatically with Windows (recommended)</li>
+            </ul>
+          </li>
+          <li>Click <strong>Install</strong> and wait for completion</li>
+          <li>Daemon launches automatically with purple tray icon (H)</li>
         </ol>
+        <div style="background: #eff6ff; border-left: 3px solid #3b82f6; padding: 8px 12px; margin: 8px 0; border-radius: 4px; font-size: 11px; color: #1e40af;">
+          <strong>💡 Professional Installer:</strong> Full setup wizard with directory selection, uninstaller, and Start Menu shortcuts - just like any Windows application!
+        </div>
       `;
     }
     
