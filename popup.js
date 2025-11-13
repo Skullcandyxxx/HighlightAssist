@@ -542,11 +542,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     let platformName = 'Windows';
     let installSteps = '';
     // Professional installer for Windows, packages for other platforms
-    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.2/HighlightAssist-Setup-v1.2.2.exe';
+    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.3.0/HighlightAssist-Setup-v1.3.0.exe';
     
     if (platform.includes('mac')) {
       platformName = 'macOS';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.2/HighlightAssist-macOS-v1.2.2.zip';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.3.0/HighlightAssist-macOS-v1.3.0.zip';
       installSteps = `
         <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
           <li>Download and extract the ZIP file</li>
@@ -558,7 +558,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     } else if (platform.includes('linux')) {
       platformName = 'Linux';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.2/HighlightAssist-Linux-v1.2.2.zip';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.3.0/HighlightAssist-Linux-v1.3.0.zip';
       installSteps = `
         <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
           <li>Download and extract the ZIP file</li>
@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Windows - Professional installer
       installSteps = `
         <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
-          <li><strong>Download</strong> the installer (HighlightAssist-Setup-v1.2.2.exe)</li>
+          <li><strong>Download</strong> the installer (HighlightAssist-Setup-v1.3.0.exe)</li>
           <li><strong>Double-click</strong> the installer to start setup wizard</li>
           <li><strong>Choose</strong> installation directory (or use default)</li>
           <li><strong>Select options:</strong>

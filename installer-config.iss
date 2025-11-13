@@ -3,7 +3,7 @@
 ; https://jrsoftware.org/isinfo.php
 
 #define MyAppName "HighlightAssist Daemon"
-#define MyAppVersion "1.2.2"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "Skullcandyxxx"
 #define MyAppURL "https://github.com/Skullcandyxxx/HighlightAssist"
 #define MyAppExeName "HighlightAssist-Service-Manager.exe"
