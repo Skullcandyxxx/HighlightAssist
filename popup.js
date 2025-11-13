@@ -1486,12 +1486,243 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, 400));
 
+  // Simple folder browser - no framework selection needed
+  async function showSimpleFolderBrowser() {
+    // Scan for running localhost servers first
+    const runningServers = await scanRunningLocalhostServers();
+    
+    // Get recent projects
+    const recentProjects = await getRecentProjects();
+    
+    // Build running servers section
+    let runningServersHTML = '';
+    if (runningServers.length > 0) {
+      runningServersHTML = `
+        <div style="background: #ecfdf5; border-left: 3px solid #10b981; padding: 12px; margin-bottom: 16px; border-radius: 6px;">
+          <div style="font-weight: 600; color: #065f46; margin-bottom: 8px;">✅ Running Servers Detected:</div>
+          ${runningServers.map(server => `
+            <button class="detected-server-btn" data-port="${server.port}" style="width: 100%; text-align: left; padding: 8px 12px; margin: 4px 0; background: white; border: 1px solid #d1fae5; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+              <div style="font-weight: 600; color: #059669;">localhost:${server.port}</div>
+              <div style="font-size: 11px; color: #6b7280;">${server.type || 'Development server'} - Click to open</div>
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    // Build recent projects section
+    let recentProjectsHTML = '';
+    if (recentProjects.length > 0) {
+      recentProjectsHTML = `
+        <div style="margin-bottom: 16px;">
+          <div class="modal-subtitle">📂 Recent Projects:</div>
+          <select class="modal-input" id="recentProjects" style="margin-bottom: 8px;">
+            <option value="">-- Select a recent project --</option>
+            ${recentProjects.map(proj => `
+              <option value="${proj.path}">${proj.name}</option>
+            `).join('')}
+          </select>
+        </div>
+      `;
+    }
+    
+    const platform = navigator.platform.toLowerCase();
+    let browseInstructions = '';
+    
+    if (platform.includes('win')) {
+      browseInstructions = `
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
+          <strong>📁 How to get folder path:</strong><br>
+          1. Open File Explorer → Navigate to project<br>
+          2. Click address bar at top<br>
+          3. Copy path (Ctrl+C) and paste below
+        </div>
+      `;
+    } else if (platform.includes('mac')) {
+      browseInstructions = `
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
+          <strong>📁 How to get folder path:</strong><br>
+          1. Open Finder → Navigate to project<br>
+          2. Right-click folder → "Get Info"<br>
+          3. Copy "Where" path and paste below
+        </div>
+      `;
+    } else {
+      browseInstructions = `
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
+          <strong>📁 How to get folder path:</strong><br>
+          Open terminal, navigate to project, and run: <code>pwd</code>
+        </div>
+      `;
+    }
+    
+    const folderHTML = `
+      ${runningServersHTML}
+      ${recentProjectsHTML}
+      
+      ${browseInstructions}
+      
+      <div class="modal-subtitle">Project Folder Path:</div>
+      <input type="text" class="modal-input" id="projectPath" placeholder="Paste your project folder path here..." style="margin-bottom: 12px;">
+      
+      <div class="modal-info">
+        💡 <strong>Auto-detection:</strong> Extension will scan your project and detect:
+        <ul style="margin: 8px 0 0 20px; font-size: 12px;">
+          <li>npm/yarn/pnpm scripts from package.json</li>
+          <li>Python virtual environments (.venv, venv)</li>
+          <li>requirements.txt or pyproject.toml</li>
+          <li>Common dev server commands</li>
+        </ul>
+      </div>
+    `;
+    
+    const result = await showCustomModal({
+      icon: '📁',
+      title: 'Select Your Project Folder',
+      body: folderHTML,
+      buttons: [
+        { text: 'Cancel', value: null, primary: false },
+        { 
+          text: '🔍 Auto-Detect & Start', 
+          value: true, 
+          primary: true,
+          onClick: async () => {
+            const projectPath = document.getElementById('projectPath').value.trim();
+            if (!projectPath) {
+              alert('❌ Please enter your project folder path');
+              return false; // Keep modal open
+            }
+            
+            // Send to daemon to auto-detect and start
+            await autoDetectAndStartServer(projectPath);
+            return true; // Close modal
+          }
+        }
+      ]
+    });
+    
+    // Setup event handlers after modal renders
+    setTimeout(() => {
+      // Recent projects dropdown
+      const recentSelect = document.getElementById('recentProjects');
+      if (recentSelect) {
+        recentSelect.addEventListener('change', (e) => {
+          const input = document.getElementById('projectPath');
+          if (input && e.target.value) {
+            input.value = e.target.value;
+          }
+        });
+      }
+      
+      // Detected server buttons
+      const serverBtns = document.querySelectorAll('.detected-server-btn');
+      serverBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const port = btn.dataset.port;
+          chrome.tabs.create({ url: `http://localhost:${port}` });
+          document.getElementById('customModal').classList.remove('active');
+        });
+        
+        // Hover effect
+        btn.addEventListener('mouseenter', () => {
+          btn.style.background = '#d1fae5';
+          btn.style.transform = 'translateX(4px)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.background = 'white';
+          btn.style.transform = 'translateX(0)';
+        });
+      });
+    }, 100);
+  }
+
+  // Auto-detect project type and start server
+  async function autoDetectAndStartServer(projectPath) {
+    try {
+      // Show loading state
+      showCustomModal({
+        icon: '⏳',
+        title: 'Auto-Detecting Project...',
+        body: '<div style="text-align: center; padding: 20px;">Scanning your project folder...</div>',
+        buttons: []
+      });
+      
+      // Send to daemon to detect project type
+      const ws = new WebSocket('ws://localhost:5055/ws');
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          type: 'auto_detect_project',
+          data: { path: projectPath }
+        }));
+      };
+      
+      ws.onmessage = async (event) => {
+        const response = JSON.parse(event.data);
+        
+        if (response.type === 'project_detected') {
+          const { command, port, projectType, venv } = response.data;
+          
+          // Show confirmation with detected info
+          const confirmHTML = `
+            <div style="background: #ecfdf5; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+              <div style="font-weight: 600; color: #065f46; margin-bottom: 8px;">✅ Project Detected:</div>
+              <div style="font-size: 13px; color: #047857;">
+                <strong>Type:</strong> ${projectType}<br>
+                ${venv ? `<strong>Virtual Env:</strong> ${venv}<br>` : ''}
+                <strong>Command:</strong> <code>${command}</code><br>
+                <strong>Port:</strong> ${port}
+              </div>
+            </div>
+            <div class="modal-info">Ready to start your development server?</div>
+          `;
+          
+          const confirm = await showCustomModal({
+            icon: '🚀',
+            title: 'Start Development Server?',
+            body: confirmHTML,
+            buttons: [
+              { text: 'Cancel', value: false, primary: false },
+              { text: '🚀 Start Server', value: true, primary: true }
+            ]
+          });
+          
+          if (confirm) {
+            // Execute the detected command
+            ws.send(JSON.stringify({
+              type: 'execute_command',
+              data: { command, cwd: projectPath, port }
+            }));
+            
+            // Save to recent projects
+            const projectName = projectPath.split(/[\\/]/).pop();
+            await saveToRecentProjects(projectPath, projectName);
+            
+            showSuccess(`✅ Server started on port ${port}!`);
+          }
+        } else if (response.type === 'error') {
+          showError(`❌ ${response.message || 'Failed to detect project type'}`);
+        }
+        
+        ws.close();
+      };
+      
+      ws.onerror = () => {
+        showError('❌ Failed to connect to daemon. Make sure it\'s running.');
+      };
+      
+    } catch (error) {
+      console.error('Auto-detect error:', error);
+      showError('❌ Failed to auto-detect project: ' + error.message);
+    }
+  }
+
   // Start New Server button
   const startNewServerBtn = document.getElementById('startNewServerBtn');
   if (startNewServerBtn) {
     startNewServerBtn.addEventListener('click', async () => {
-      // Call the smart folder selection with default command
-      await showFolderSelectionAndExecute('npm run dev', 5173);
+      // Simplified: Just show folder browser, no framework selection
+      await showSimpleFolderBrowser();
     });
     
     // Hover effect
