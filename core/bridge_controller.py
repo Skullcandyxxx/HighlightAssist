@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -20,6 +21,7 @@ class BridgeController:
         self.timeout = timeout
         self._process: Optional[subprocess.Popen] = None
         self._script_dir = Path(__file__).parent.parent
+        self._start_time: Optional[datetime] = None
         
     @property
     def is_running(self) -> bool:
@@ -65,6 +67,7 @@ class BridgeController:
                 kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
             
             self._process = subprocess.Popen(cmd, **kwargs)
+            self._start_time = datetime.now()
             logger.info('Bridge process started (PID: %d), logging to %s', self._process.pid, bridge_log)
             
             # Wait for bridge to be ready
@@ -84,6 +87,12 @@ class BridgeController:
         except Exception as e:
             logger.exception('Failed to start bridge')
             return {'status': 'error', 'error': str(e)}
+    
+    def get_uptime(self) -> float:
+        """Get bridge uptime in seconds."""
+        if not self._start_time:
+            return 0.0
+        return (datetime.now() - self._start_time).total_seconds()
     
     def stop(self) -> dict:
         """Stop the bridge server."""
@@ -109,6 +118,7 @@ class BridgeController:
             return {'status': 'error', 'error': str(e)}
         finally:
             self._process = None
+            self._start_time = None
     
     def restart(self) -> dict:
         """Restart the bridge server."""

@@ -2,6 +2,7 @@
 
 High-performance daemon for managing the bridge server.
 Uses selector-based TCP server for minimal CPU usage.
+Enhanced with health monitoring and auto-recovery.
 """
 from __future__ import annotations
 
@@ -11,12 +12,15 @@ sys.dont_write_bytecode = True
 
 import logging
 import os
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from core.bridge_controller import BridgeController
 from core.notifier import NotificationManager
 from core.tcp_server import TCPControlServer
+from core.health_server import HealthCheckServer
+from core.bridge_monitor import BridgeMonitor
 
 # Try to import tray icon
 try:
@@ -49,21 +53,46 @@ logger = logging.getLogger(__name__)
 class ServiceManager:
     """Main service manager - coordinates all components."""
     
-    def __init__(self, control_port: int = 5054, bridge_port: int = 5055, use_tray: bool = True):
+    def __init__(self, control_port: int = 5054, bridge_port: int = 5055, health_port: int = 5056, use_tray: bool = True):
         self.bridge = BridgeController(port=bridge_port)
         self.server = TCPControlServer(port=control_port)
+        self.health_server = HealthCheckServer(port=health_port, service_manager=self)
         self.notifier = NotificationManager()
+        self.monitor = None  # Bridge monitor (created after initialization)
         self.tray = None
         self.use_tray = use_tray and HAS_TRAY
+        self.start_time = datetime.now()
         
         # Set command handler
         self.server.set_handler(self._handle_command)
+        
+        # Create bridge monitor with callbacks
+        self.monitor = BridgeMonitor(
+            self.bridge,
+            on_crash=self._on_bridge_crash,
+            on_recovery=self._on_bridge_recovery
+        )
         
         # Create tray icon if available
         if self.use_tray:
             self.tray = HighlightAssistTray(self.bridge, self.notifier)
         
         logger.info('HighlightAssist Service Manager v2.0 initialized')
+        logger.info(f'TCP Control: port {control_port}')
+        logger.info(f'Bridge: port {bridge_port}')
+        logger.info(f'Health Check: port {health_port}')
+    
+    def _on_bridge_crash(self):
+        """Called when bridge crashes"""
+        logger.error('🔥 Bridge crashed')
+        # Skip notification to avoid win10toast errors
+        # self.notifier.notify('HighlightAssist', '⚠️  Bridge crashed - attempting recovery...')
+    
+    def _on_bridge_recovery(self):
+        """Called when bridge recovers"""
+        logger.info('✅ Bridge recovered successfully')
+        # Skip notification to avoid win10toast errors
+        # self.notifier.notify('HighlightAssist', '✅ Bridge recovered successfully')
     
     def _handle_command(self, command: dict) -> dict:
         """Handle commands from extension."""
@@ -117,9 +146,18 @@ class ServiceManager:
     def run(self):
         """Start service manager (blocks until interrupted)."""
         try:
+            # Start health check server first
+            self.health_server.start()
+            
+            # Start TCP control server
             self.server.start()
+            
+            # Start bridge monitor
+            self.monitor.start()
+            
             logger.info('Service manager running. Press Ctrl+C to stop.')
-            self.notifier.notify('HighlightAssist', 'Service manager started')
+            # Skip startup notification to avoid win10toast errors
+            # self.notifier.notify('HighlightAssist', 'Service manager started')
             
             # Run with tray icon if available
             if self.use_tray and self.tray:
@@ -142,16 +180,41 @@ class ServiceManager:
                 
                 event.wait()
             
-        except Exception:
-            logger.exception('Fatal error in service manager')
+        except Exception as e:
+            logger.exception(f'Fatal error in service manager: {e}')
         finally:
             self.shutdown()
     
     def shutdown(self):
         """Clean shutdown."""
         logger.info('Shutting down service manager...')
-        self.server.stop()
-        self.bridge.stop()
+        
+        try:
+            # Stop monitor first
+            if self.monitor:
+                self.monitor.stop()
+        except Exception as e:
+            logger.error(f'Error stopping monitor: {e}')
+        
+        try:
+            # Stop health server
+            if self.health_server:
+                self.health_server.stop()
+        except Exception as e:
+            logger.error(f'Error stopping health server: {e}')
+        
+        try:
+            # Stop TCP server
+            self.server.stop()
+        except Exception as e:
+            logger.error(f'Error stopping TCP server: {e}')
+        
+        try:
+            # Stop bridge
+            self.bridge.stop()
+        except Exception as e:
+            logger.error(f'Error stopping bridge: {e}')
+        
         self.notifier.notify('HighlightAssist', 'Service stopped')
         logger.info('Shutdown complete')
 
