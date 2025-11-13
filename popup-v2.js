@@ -33,22 +33,26 @@ class PopupController {
     setupDownloadLinks() {
         const userAgent = navigator.userAgent.toLowerCase();
         const platform = navigator.platform.toLowerCase();
+        const version = '2.0.0'; // Update this when version changes
         
         let detectedOS = 'Windows';
-        let downloadUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v2.0.0/HighlightAssist-Setup-Windows.exe';
+        let downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/HighlightAssist-Setup-v${version}.exe`;
         let fileSize = '~15 MB';
         let icon = '🪟';
+        let fileName = `HighlightAssist-Setup-v${version}.exe`;
         
         // Detect OS
         if (userAgent.indexOf('mac') !== -1 || platform.indexOf('mac') !== -1) {
             detectedOS = 'macOS';
-            downloadUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v2.0.0/HighlightAssist-Setup-macOS.dmg';
-            fileSize = '~12 MB';
+            fileName = `HighlightAssist-macOS-v${version}.zip`;
+            downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${fileName}`;
+            fileSize = '~5 MB';
             icon = '🍎';
         } else if (userAgent.indexOf('linux') !== -1 || platform.indexOf('linux') !== -1) {
             detectedOS = 'Linux';
-            downloadUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v2.0.0/HighlightAssist-Setup-Linux.deb';
-            fileSize = '~10 MB';
+            fileName = `HighlightAssist-Linux-v${version}.zip`;
+            downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${fileName}`;
+            fileSize = '~5 MB';
             icon = '🐧';
         }
         
@@ -56,6 +60,12 @@ class PopupController {
         const detectedOSElement = document.getElementById('detectedOS');
         if (detectedOSElement) {
             detectedOSElement.textContent = detectedOS;
+        }
+        
+        // Update description for zip files
+        const installerDesc = document.getElementById('installerDesc');
+        if (installerDesc && (detectedOS === 'macOS' || detectedOS === 'Linux')) {
+            installerDesc.textContent = `Download and extract zip, then run install script`;
         }
         
         // Create download buttons
@@ -67,12 +77,12 @@ class PopupController {
             primaryButton.className = 'btn btn-primary btn-sm';
             primaryButton.style.textDecoration = 'none';
             primaryButton.innerHTML = `${icon} Download for ${detectedOS} <span style="opacity: 0.8; font-size: 10px;">(${fileSize})</span>`;
-            primaryButton.download = '';
+            primaryButton.download = fileName;
             downloadButtons.appendChild(primaryButton);
             
             // Secondary link to all downloads
             const allDownloadsLink = document.createElement('a');
-            allDownloadsLink.href = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/tag/v2.0.0';
+            allDownloadsLink.href = `https://github.com/Skullcandyxxx/HighlightAssist/releases/tag/v${version}`;
             allDownloadsLink.className = 'btn btn-secondary btn-sm';
             allDownloadsLink.style.textDecoration = 'none';
             allDownloadsLink.target = '_blank';
