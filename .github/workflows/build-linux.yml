@@ -24,7 +24,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller plyer pystray pillow
+          pip install pyinstaller fastapi uvicorn plyer pystray pillow psutil
 
       - name: Build Service Manager with PyInstaller
         run: |
@@ -48,6 +48,61 @@ jobs:
         run: |
           tar -czf HighlightAssist-Linux-${{ github.ref_name }}.tar.gz -C release .
 
+      - name: Create DEB package
+        run: |
+          # Get version without 'v' prefix
+          VERSION="${GITHUB_REF_NAME#v}"
+          
+          # Create package structure
+          mkdir -p deb/DEBIAN
+          mkdir -p deb/opt/highlightassist
+          mkdir -p deb/usr/share/applications
+          mkdir -p deb/usr/share/icons
+          
+          # Copy files
+          cp -r release/* deb/opt/highlightassist/
+          
+          # Create control file
+          cat > deb/DEBIAN/control << EOF
+          Package: highlightassist
+          Version: ${VERSION}
+          Section: development
+          Priority: optional
+          Architecture: amd64
+          Maintainer: HighlightAssist Team
+          Description: Visual UI debugger for localhost development
+           Automatic server detection, framework identification, and element inspection
+           for modern web development workflows.
+          EOF
+          
+          # Create desktop file
+          cat > deb/usr/share/applications/highlightassist.desktop << EOF
+          [Desktop Entry]
+          Name=HighlightAssist
+          Comment=Visual UI Debugger
+          Exec=/opt/highlightassist/HighlightAssist-Service-Manager
+          Icon=/opt/highlightassist/assets/icon-128.png
+          Terminal=false
+          Type=Application
+          Categories=Development;
+          EOF
+          
+          # Build package
+          dpkg-deb --build deb HighlightAssist-Linux-v${VERSION}.deb
+
+      - name: Create RPM package (using alien)
+        run: |
+          # Install alien
+          sudo apt-get update
+          sudo apt-get install -y alien
+          
+          # Convert DEB to RPM
+          VERSION="${GITHUB_REF_NAME#v}"
+          sudo alien -r HighlightAssist-Linux-v${VERSION}.deb
+          
+          # Rename to match our convention
+          mv highlightassist-*.rpm HighlightAssist-Linux-v${VERSION}.rpm || true
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -58,6 +113,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: HighlightAssist-Linux-${{ github.ref_name }}.tar.gz
+          files: |
+            HighlightAssist-Linux-${{ github.ref_name }}.tar.gz
+            HighlightAssist-Linux-*.deb
+            HighlightAssist-Linux-*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
