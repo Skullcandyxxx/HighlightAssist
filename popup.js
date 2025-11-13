@@ -245,19 +245,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Detect platform
     const platform = navigator.platform.toLowerCase();
     let platformName = 'Windows';
-    // Correct filenames from GitHub Actions workflows
-    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-Windows-v1.2.0.zip';
+    let installSteps = '';
+    // Updated to v1.2.1 with proper installation instructions
+    let downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-Windows-v1.2.1.zip';
     
     if (platform.includes('mac')) {
       platformName = 'macOS';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-macOS-v1.2.0.tar.gz';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-macOS-v1.2.1.zip';
+      installSteps = `
+        <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
+          <li>Extract the downloaded ZIP file</li>
+          <li>Open Terminal in the extracted folder</li>
+          <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">chmod +x install-macos.sh</code></li>
+          <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">./install-macos.sh</code></li>
+          <li>Daemon will auto-start with system tray icon</li>
+        </ol>
+      `;
     } else if (platform.includes('linux')) {
       platformName = 'Linux';
-      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.0/HighlightAssist-Linux-v1.2.0.tar.gz';
+      downloadLink = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v1.2.1/HighlightAssist-Linux-v1.2.1.zip';
+      installSteps = `
+        <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
+          <li>Extract the downloaded ZIP file</li>
+          <li>Open terminal in the extracted folder</li>
+          <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">chmod +x install-linux.sh</code></li>
+          <li>Run: <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">sudo ./install-linux.sh</code></li>
+          <li>Daemon will auto-start as systemd service</li>
+        </ol>
+      `;
+    } else {
+      // Windows
+      installSteps = `
+        <ol style="text-align: left; padding-left: 20px; margin: 12px 0; line-height: 1.8; color: #64748b; font-size: 12px;">
+          <li>Extract the downloaded ZIP file</li>
+          <li>Right-click <strong>install-windows-service.ps1</strong></li>
+          <li>Select "Run with PowerShell"</li>
+          <li>Click "Yes" if prompted for admin rights</li>
+          <li>Daemon will install and auto-start with Windows</li>
+          <li>Look for tray icon (purple "H") in system tray</li>
+        </ol>
+      `;
     }
     
     const installHTML = `
       <div class="modal-subtitle">The HighlightAssist Daemon is required to start development servers from the extension.</div>
+      
+      <div style="background: #f0fdf4; border-left: 3px solid #10b981; padding: 12px; margin: 12px 0; border-radius: 6px;">
+        <div style="font-weight: 600; color: #047857; margin-bottom: 6px;">📦 Installation Steps for ${platformName}:</div>
+        ${installSteps}
+      </div>
       
       <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 12px; border-radius: 8px; margin: 16px 0;">
         <div style="font-weight: 600; color: #92400e; margin-bottom: 6px;">⚙️ Daemon Features:</div>
@@ -280,7 +316,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
       
       <div class="modal-info">
-        💡 The daemon runs in the background and enables advanced features like automatic server management.
+        ✅ After installation, the daemon runs automatically in the background (system tray icon)<br>
+        ✅ Enables server management: start, stop, restart localhost servers<br>
+        ✅ Auto-starts with your computer - no manual launch needed
       </div>
     `;
     
