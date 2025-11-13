@@ -364,6 +364,11 @@
             padding: 16px;
         }
 
+        .install-card-required {
+            border-color: #fbbf24;
+            background: linear-gradient(to bottom, #fffbeb 0%, white 100%);
+        }
+
         .install-header {
             display: flex;
             gap: 12px;
@@ -383,6 +388,10 @@
             justify-content: center;
             font-size: 20px;
             flex-shrink: 0;
+        }
+
+        .install-icon-warning {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         }
 
         .install-header h3 {
@@ -456,6 +465,12 @@
             font-size: 12px;
             color: #78350f;
             line-height: 1.5;
+        }
+
+        .install-note-warning {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
         }
 
         .install-note strong {
@@ -533,46 +548,43 @@
 
         <!-- Installation Guide (shown when daemon not running) -->
         <div class="section" id="installSection" style="display: none;">
-            <div class="section-title">📦 Service Manager Setup</div>
-            <div class="install-card">
+            <div class="section-title">⚠️ Service Manager Required</div>
+            <div class="install-card install-card-required">
                 <div class="install-header">
-                    <div class="install-icon">💡</div>
+                    <div class="install-icon install-icon-warning">⚡</div>
                     <div>
-                        <h3>Install Service Manager</h3>
-                        <p>For automatic server detection and health monitoring</p>
+                        <h3>Service Manager Not Running</h3>
+                        <p>Required for localhost management and auto-recovery features</p>
                     </div>
                 </div>
                 <div class="install-steps">
                     <div class="install-step">
                         <span class="step-number">1</span>
                         <div class="step-content">
-                            <strong>Download Installer</strong>
-                            <p>Get the latest Windows installer from GitHub Releases</p>
-                            <a href="https://github.com/Skullcandyxxx/HighlightAssist/releases/latest" class="btn btn-primary btn-sm" target="_blank">
-                                📥 Download v2.0.0
-                            </a>
+                            <strong>Download Installer for <span id="detectedOS">Your OS</span></strong>
+                            <p id="installerDesc">Direct download - no GitHub account needed</p>
+                            <div id="downloadButtons" style="display: flex; flex-direction: column; gap: 8px;">
+                                <!-- Buttons will be inserted by JavaScript -->
+                            </div>
                         </div>
                     </div>
                     <div class="install-step">
                         <span class="step-number">2</span>
                         <div class="step-content">
                             <strong>Run Setup</strong>
-                            <p>Installs service manager with tray icon (non-intrusive)</p>
+                            <p>Quick installation with auto-start option (tray icon, no command windows)</p>
                         </div>
                     </div>
                     <div class="install-step">
                         <span class="step-number">3</span>
                         <div class="step-content">
-                            <strong>Optional: View Logs</strong>
-                            <p>For developers - check service status and debugging</p>
-                            <button class="btn btn-secondary btn-sm" id="openLogsBtn" disabled>
-                                📂 Open Logs Folder
-                            </button>
+                            <strong>Verify Status</strong>
+                            <p>Status pills above will turn green when daemon starts</p>
                         </div>
                     </div>
                 </div>
-                <div class="install-note">
-                    💡 <strong>Note:</strong> The extension works without the service manager, but you won't have automatic server scanning and bridge auto-recovery.
+                <div class="install-note install-note-warning">
+                    ⚠️ <strong>Required:</strong> The service manager is required for localhost server detection, framework identification, and auto-recovery. Extension features are limited without it.
                 </div>
             </div>
         </div>

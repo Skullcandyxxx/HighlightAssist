@@ -17,6 +17,9 @@ class PopupController {
         // Setup event listeners
         this.setupEventListeners();
         
+        // Detect OS and setup download links
+        this.setupDownloadLinks();
+        
         // Initial status check
         await this.checkStatuses();
         
@@ -25,6 +28,57 @@ class PopupController {
         
         // Load servers
         await this.scanServers();
+    }
+
+    setupDownloadLinks() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const platform = navigator.platform.toLowerCase();
+        
+        let detectedOS = 'Windows';
+        let downloadUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v2.0.0/HighlightAssist-Setup-Windows.exe';
+        let fileSize = '~15 MB';
+        let icon = '🪟';
+        
+        // Detect OS
+        if (userAgent.indexOf('mac') !== -1 || platform.indexOf('mac') !== -1) {
+            detectedOS = 'macOS';
+            downloadUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v2.0.0/HighlightAssist-Setup-macOS.dmg';
+            fileSize = '~12 MB';
+            icon = '🍎';
+        } else if (userAgent.indexOf('linux') !== -1 || platform.indexOf('linux') !== -1) {
+            detectedOS = 'Linux';
+            downloadUrl = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v2.0.0/HighlightAssist-Setup-Linux.deb';
+            fileSize = '~10 MB';
+            icon = '🐧';
+        }
+        
+        // Update detected OS text
+        const detectedOSElement = document.getElementById('detectedOS');
+        if (detectedOSElement) {
+            detectedOSElement.textContent = detectedOS;
+        }
+        
+        // Create download buttons
+        const downloadButtons = document.getElementById('downloadButtons');
+        if (downloadButtons) {
+            // Primary download button for detected OS
+            const primaryButton = document.createElement('a');
+            primaryButton.href = downloadUrl;
+            primaryButton.className = 'btn btn-primary btn-sm';
+            primaryButton.style.textDecoration = 'none';
+            primaryButton.innerHTML = `${icon} Download for ${detectedOS} <span style="opacity: 0.8; font-size: 10px;">(${fileSize})</span>`;
+            primaryButton.download = '';
+            downloadButtons.appendChild(primaryButton);
+            
+            // Secondary link to all downloads
+            const allDownloadsLink = document.createElement('a');
+            allDownloadsLink.href = 'https://github.com/Skullcandyxxx/HighlightAssist/releases/tag/v2.0.0';
+            allDownloadsLink.className = 'btn btn-secondary btn-sm';
+            allDownloadsLink.style.textDecoration = 'none';
+            allDownloadsLink.target = '_blank';
+            allDownloadsLink.innerHTML = '📦 All Downloads (Windows, macOS, Linux)';
+            downloadButtons.appendChild(allDownloadsLink);
+        }
     }
 
     setupEventListeners() {
@@ -49,22 +103,6 @@ class PopupController {
             e.preventDefault();
             chrome.tabs.create({ url: 'https://github.com/Skullcandyxxx/HighlightAssist' });
         });
-
-        // Open logs button (for developers)
-        const openLogsBtn = document.getElementById('openLogsBtn');
-        if (openLogsBtn) {
-            openLogsBtn.addEventListener('click', () => {
-                // This will be enabled when daemon is installed
-                const logsPath = '%LOCALAPPDATA%\\HighlightAssist\\logs';
-                // Since we can't directly open explorer from extension, show the path
-                this.showNotification('Logs Location', `Open File Explorer and navigate to:\n${logsPath}`, 'info');
-            });
-        }
-    }
-
-    showNotification(title, message, type = 'info') {
-        // Simple alert for now - could be enhanced with custom notification UI
-        alert(`${title}\n\n${message}`);
     }
 
     async checkStatuses() {
