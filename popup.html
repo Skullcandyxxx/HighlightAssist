@@ -286,6 +286,38 @@
             color: #dc2626;
         }
         
+        /* Pulse animation for daemon status */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        .daemon-icon.connecting {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        /* OS Badge */
+        .os-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .daemon-badge.connected .os-badge {
+            color: #047857;
+        }
+        .daemon-badge.disconnected .os-badge {
+            color: #991b1b;
+        }
+        
         /* Server Management Section */
         .server-management {
             margin-bottom: 14px;
@@ -624,7 +656,10 @@
             <div class="daemon-badge-content">
                 <span id="daemonIcon" class="daemon-icon">🔌</span>
                 <div class="daemon-text">
-                    <div id="daemonLabel" class="daemon-label">Daemon Status</div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <div id="daemonLabel" class="daemon-label">Daemon Status</div>
+                        <span id="osIcon" class="os-badge">🖥️ Detecting...</span>
+                    </div>
                     <div id="daemonState" class="daemon-state">Checking...</div>
                 </div>
             </div>

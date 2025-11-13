@@ -39,11 +39,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const badge = document.getElementById('daemonStatus');
     const icon = document.getElementById('daemonIcon');
     const state = document.getElementById('daemonState');
+    const osIcon = document.getElementById('osIcon');
     
     badge.style.display = 'block';
     badge.className = 'daemon-badge ' + (connected ? 'connected' : 'disconnected');
     icon.textContent = connected ? '✅' : '🔌';
     state.textContent = connected ? 'Connected & Ready' : 'Not Running';
+    
+    // Detect OS and show icon
+    const platform = navigator.platform.toLowerCase();
+    let osText = '🖥️ Windows';
+    if (platform.includes('mac')) {
+      osText = '🍎 macOS';
+    } else if (platform.includes('linux')) {
+      osText = '🐧 Linux';
+    }
+    osIcon.textContent = osText;
   }
   
   updateDaemonStatusBadge(daemonConnected);
