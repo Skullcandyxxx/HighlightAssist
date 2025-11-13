@@ -2,8 +2,8 @@
 ; Inno Setup Configuration File
 ; https://jrsoftware.org/isinfo.php
 
-#define MyAppName "HighlightAssist Daemon"
-#define MyAppVersion "1.3.0"
+#define MyAppName "HighlightAssist"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "Skullcandyxxx"
 #define MyAppURL "https://github.com/Skullcandyxxx/HighlightAssist"
 #define MyAppExeName "HighlightAssist-Service-Manager.exe"
@@ -67,7 +67,7 @@ CreateUninstallRegKey=yes
 ; Version information
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}
-VersionInfoDescription=HighlightAssist Daemon Installer
+VersionInfoDescription=HighlightAssist - Visual UI Debugger with Localhost Management
 VersionInfoCopyright=© {#MyAppPublisher} 2025
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
@@ -77,7 +77,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart"; Description: "Start HighlightAssist Bridge automatically when Windows starts"; GroupDescription: "Additional options:"
+Name: "autostart"; Description: "Start automatically when Windows starts (tray icon)"; GroupDescription: "Service Options:"; Flags: checked
+Name: "openlogsfolder"; Description: "Open logs folder after installation (for developers)"; GroupDescription: "Developer Options:"; Flags: unchecked
 
 [Files]
 ; Main executable (PyInstaller built)
@@ -91,6 +92,8 @@ Source: "core\__init__.py"; DestDir: "{app}\core"; Flags: ignoreversion
 Source: "core\bridge_controller.py"; DestDir: "{app}\core"; Flags: ignoreversion
 Source: "core\tcp_server.py"; DestDir: "{app}\core"; Flags: ignoreversion
 Source: "core\notifier.py"; DestDir: "{app}\core"; Flags: ignoreversion
+Source: "core\health_server.py"; DestDir: "{app}\core"; Flags: ignoreversion
+Source: "core\bridge_monitor.py"; DestDir: "{app}\core"; Flags: ignoreversion
 ; Requirements and docs
 Source: "requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
@@ -100,15 +103,21 @@ Source: "assets\icon-128.png"; DestDir: "{app}\assets"; Flags: ignoreversion
 
 [Icons]
 ; Start Menu shortcuts
-Name: "{group}\HighlightAssist Daemon"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Comment: "Start HighlightAssist Daemon"
-Name: "{group}\Stop HighlightAssist"; Filename: "{cmd}"; Parameters: "/c taskkill /F /IM ""{#MyAppExeName}"""; Comment: "Stop the daemon"; IconFilename: "{app}\icons\icon128.png"
-Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{group}\HighlightAssist"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Comment: "Start HighlightAssist Service Manager with Tray Icon"
+Name: "{group}\View Logs"; Filename: "{win}\explorer.exe"; Parameters: """{localappdata}\HighlightAssist\logs"""; Comment: "Open log directory"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; Comment: "Uninstall HighlightAssist"
 ; Desktop icon (optional task)
-Name: "{autodesktop}\HighlightAssist"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "HighlightAssist Daemon"
+Name: "{autodesktop}\HighlightAssist"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "HighlightAssist - Visual UI Debugger"
+; Auto-start shortcut (optional task)
+Name: "{userstartup}\HighlightAssist"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: autostart; Comment: "HighlightAssist Service Manager"
 
 [Run]
-; Start the daemon after installation
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch HighlightAssist Daemon now"; Flags: nowait postinstall skipifsilent; WorkingDir: "{app}"
+; Post-install: Create log directory
+Filename: "{cmd}"; Parameters: "/c mkdir ""{localappdata}\HighlightAssist\logs"""; Flags: runhidden waituntilterminated
+; Launch daemon with tray icon (non-blocking)
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch HighlightAssist now (tray icon will appear)"; Flags: nowait postinstall skipifsilent; WorkingDir: "{app}"
+; Developer option: Open logs folder
+Filename: "{win}\explorer.exe"; Parameters: """{localappdata}\HighlightAssist\logs"""; Description: "Open logs folder (recommended for developers)"; Flags: postinstall skipifsilent unchecked shellexec
 
 [Code]
 var
@@ -194,7 +203,7 @@ end;
 
 [Registry]
 ; Auto-start with Windows (if task selected)
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssistDaemon"; ValueData: """{app}\{#MyAppExeName}"""; Tasks: autostart
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssist"; ValueData: """{app}\{#MyAppExeName}"""; Tasks: autostart
 
 [UninstallRun]
 ; Stop the daemon before uninstalling

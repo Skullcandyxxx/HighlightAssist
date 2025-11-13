@@ -49,6 +49,22 @@ class PopupController {
             e.preventDefault();
             chrome.tabs.create({ url: 'https://github.com/Skullcandyxxx/HighlightAssist' });
         });
+
+        // Open logs button (for developers)
+        const openLogsBtn = document.getElementById('openLogsBtn');
+        if (openLogsBtn) {
+            openLogsBtn.addEventListener('click', () => {
+                // This will be enabled when daemon is installed
+                const logsPath = '%LOCALAPPDATA%\\HighlightAssist\\logs';
+                // Since we can't directly open explorer from extension, show the path
+                this.showNotification('Logs Location', `Open File Explorer and navigate to:\n${logsPath}`, 'info');
+            });
+        }
+    }
+
+    showNotification(title, message, type = 'info') {
+        // Simple alert for now - could be enhanced with custom notification UI
+        alert(`${title}\n\n${message}`);
     }
 
     async checkStatuses() {
@@ -62,6 +78,7 @@ class PopupController {
             if (response.ok) {
                 this.daemonRunning = true;
                 this.updateStatusPill('daemonStatus', true);
+                this.toggleInstallSection(false); // Hide installation section
                 
                 // If daemon is running, check bridge
                 await this.checkBridge();
@@ -70,12 +87,21 @@ class PopupController {
                 this.bridgeRunning = false;
                 this.updateStatusPill('daemonStatus', false);
                 this.updateStatusPill('bridgeStatus', false);
+                this.toggleInstallSection(true); // Show installation section
             }
         } catch (error) {
             this.daemonRunning = false;
             this.bridgeRunning = false;
             this.updateStatusPill('daemonStatus', false);
             this.updateStatusPill('bridgeStatus', false);
+            this.toggleInstallSection(true); // Show installation section
+        }
+    }
+
+    toggleInstallSection(show) {
+        const installSection = document.getElementById('installSection');
+        if (installSection) {
+            installSection.style.display = show ? 'block' : 'none';
         }
     }
 

@@ -17,8 +17,26 @@ a = Analysis(
         ('core/bridge_controller.py', 'core'),
         ('core/tcp_server.py', 'core'),
         ('core/notifier.py', 'core'),
+        ('core/health_server.py', 'core'),
+        ('core/bridge_monitor.py', 'core'),
+        ('bridge.py', '.'),
+        ('tray_icon.py', '.'),
     ],
     hiddenimports=[
+        # Core dependencies
+        'fastapi',
+        'uvicorn',
+        'uvicorn.logging',
+        'uvicorn.loops',
+        'uvicorn.loops.auto',
+        'uvicorn.protocols',
+        'uvicorn.protocols.http',
+        'uvicorn.protocols.http.auto',
+        'uvicorn.protocols.websockets',
+        'uvicorn.protocols.websockets.auto',
+        'uvicorn.lifespan',
+        'uvicorn.lifespan.on',
+        'psutil',  # Process monitoring
         # Platform-specific notification libraries (optional - code handles gracefully if missing)
         # 'win10toast',  # Windows only
         # 'notify2',     # Linux only  
@@ -27,6 +45,13 @@ a = Analysis(
         'pystray',       # System tray
         'PIL.Image',
         'PIL.ImageDraw',
+        'PIL.ImageFont',
+        # Core modules
+        'core.bridge_controller',
+        'core.tcp_server',
+        'core.notifier',
+        'core.health_server',
+        'core.bridge_monitor',
     ],
     hookspath=[],
     runtime_hooks=[],
