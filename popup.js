@@ -25,6 +25,74 @@ document.addEventListener('DOMContentLoaded', async () => {
   daemonConnected = await checkDaemonConnection();
   console.log('Daemon connection status:', daemonConnected);
   
+  // Helper: Scan for running localhost servers
+  async function scanRunningLocalhostServers() {
+    const commonPorts = [3000, 3001, 4200, 5000, 5173, 5174, 8000, 8080, 8081, 8888, 9000];
+    const running = [];
+    
+    for (const port of commonPorts) {
+      try {
+        const response = await fetch(`http://localhost:${port}`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(500)
+        });
+        
+        // Server responded - try to identify type
+        let type = 'Development server';
+        const contentType = response.headers.get('content-type');
+        const server = response.headers.get('server');
+        
+        if (contentType?.includes('text/html')) {
+          if (server?.toLowerCase().includes('vite')) type = 'Vite';
+          else if (server?.toLowerCase().includes('webpack')) type = 'Webpack Dev Server';
+          else type = 'Web Server';
+        }
+        
+        running.push({ port, type });
+      } catch (e) {
+        // Port not responding
+      }
+    }
+    
+    return running;
+  }
+  
+  // Helper: Get recent projects from storage
+  async function getRecentProjects() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['recentProjects'], (data) => {
+        const projects = data.recentProjects || [];
+        resolve(projects.slice(0, 5)); // Last 5 projects
+      });
+    });
+  }
+  
+  // Helper: Save project to recents
+  async function saveToRecentProjects(path, name) {
+    chrome.storage.local.get(['recentProjects'], (data) => {
+      const projects = data.recentProjects || [];
+      
+      // Remove if already exists
+      const filtered = projects.filter(p => p.path !== path);
+      
+      // Add to front
+      filtered.unshift({ path, name, timestamp: Date.now() });
+      
+      // Keep only last 10
+      const updated = filtered.slice(0, 10);
+      
+      chrome.storage.local.set({ recentProjects: updated });
+    });
+  }
+  
+  // Helper: Auto-detect dev command from project folder
+  async function autoDetectDevCommand(projectPath) {
+    // This would need to communicate with daemon to read files
+    // For now, return common defaults
+    // TODO: Add bridge API to read package.json/requirements.txt
+    return null; // Let user's specified command be used
+  }
+  
   // Load running servers from storage
   chrome.storage.local.get(['runningServers'], (result) => {
     if (result.runningServers) {
@@ -40,11 +108,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const icon = document.getElementById('daemonIcon');
     const state = document.getElementById('daemonState');
     const osIcon = document.getElementById('osIcon');
+    const startServerSection = document.getElementById('startServerSection');
     
     badge.style.display = 'block';
     badge.className = 'daemon-badge ' + (connected ? 'connected' : 'disconnected');
     icon.textContent = connected ? '✅' : '🔌';
     state.textContent = connected ? 'Connected & Ready' : 'Not Running';
+    
+    // Show/hide start server button based on connection
+    if (startServerSection) {
+      startServerSection.style.display = connected ? 'block' : 'none';
+    }
     
     // Detect OS and show icon
     const platform = navigator.platform.toLowerCase();
@@ -480,16 +554,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 100);
         
         async function showFolderSelectionAndExecute(command, port) {
-          // Ask user to enter project folder path
+          // Scan for running localhost servers first
+          const runningServers = await scanRunningLocalhostServers();
+          
+          // Get recent projects
+          const recentProjects = await getRecentProjects();
+          
+          // Build running servers section
+          let runningServersHTML = '';
+          if (runningServers.length > 0) {
+            runningServersHTML = `
+              <div style="background: #ecfdf5; border-left: 3px solid #10b981; padding: 12px; margin-bottom: 16px; border-radius: 6px;">
+                <div style="font-weight: 600; color: #065f46; margin-bottom: 8px;">✅ Running Servers Detected:</div>
+                ${runningServers.map(server => `
+                  <button class="detected-server-btn" data-port="${server.port}" style="width: 100%; text-align: left; padding: 8px 12px; margin: 4px 0; background: white; border: 1px solid #d1fae5; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                    <div style="font-weight: 600; color: #059669;">localhost:${server.port}</div>
+                    <div style="font-size: 11px; color: #6b7280;">${server.type || 'Development server'}</div>
+                  </button>
+                `).join('')}
+              </div>
+            `;
+          }
+          
+          // Build recent projects section
+          let recentProjectsHTML = '';
+          if (recentProjects.length > 0) {
+            recentProjectsHTML = `
+              <div style="margin-bottom: 16px;">
+                <div class="modal-subtitle">Recent Projects:</div>
+                <select class="modal-input" id="recentProjects" style="margin-bottom: 8px;">
+                  <option value="">-- Select a recent project --</option>
+                  ${recentProjects.map(proj => `
+                    <option value="${proj.path}">${proj.name} (${proj.path})</option>
+                  `).join('')}
+                </select>
+              </div>
+            `;
+          }
+          
           const folderHTML = `
-            <div class="modal-subtitle">Enter the path to your project folder:</div>
-            <input type="text" class="modal-input" id="projectPath" placeholder="D:\\Projects\\LawHub\\LawFirmProject" value="">
-            <div class="modal-info" style="margin-top: 12px;">
-              💡 <strong>Tip:</strong> You can paste the folder path from File Explorer.<br>
-              Example: <code style="font-family: monospace; font-size: 11px;">D:\\Projects\\MyApp</code>
+            ${runningServersHTML}
+            
+            ${recentProjectsHTML}
+            
+            <div class="modal-subtitle">Or browse for project folder:</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <input type="text" class="modal-input" id="projectPath" placeholder="Paste path or click Browse..." value="" style="flex: 1;">
+              <button id="browseFolderBtn" style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                📁 Browse
+              </button>
             </div>
-            <div class="modal-subtitle" style="margin-top: 12px;">Command to execute:</div>
-            <input type="text" class="modal-input" id="executeCommand" value="${command}" readonly style="background: #f1f5f9;">
+            
+            <div class="modal-info" style="margin-bottom: 12px;">
+              💡 <strong>Tip:</strong> Extension will auto-detect dev server command from package.json, requirements.txt, etc.
+            </div>
+            
+            <div class="modal-subtitle">Command to execute:</div>
+            <input type="text" class="modal-input" id="executeCommand" value="${command}" style="background: #f1f5f9;">
           `;
           
           const result = await showCustomModal({
@@ -505,29 +626,100 @@ document.addEventListener('DOMContentLoaded', async () => {
                 onClick: async () => {
                   const projectPath = document.getElementById('projectPath').value;
                   if (!projectPath) {
-                    alert('Please enter a project folder path');
+                    alert('Please select a project folder or detected server');
                     return;
                   }
                   
+                  // Auto-detect command if not specified
+                  let finalCommand = document.getElementById('executeCommand').value;
+                  if (!finalCommand || finalCommand === command) {
+                    finalCommand = await autoDetectDevCommand(projectPath) || command;
+                  }
+                  
                   // Send command to daemon via WebSocket
-                  await executeCommandViaDaemon(command, projectPath, port);
+                  await executeCommandViaDaemon(finalCommand, projectPath, port);
                 }
               }
             ]
           });
           
-          // Focus input and set default path if available
+          // Setup event handlers after modal renders
           setTimeout(() => {
+            // Recent projects dropdown
+            const recentSelect = document.getElementById('recentProjects');
+            if (recentSelect) {
+              recentSelect.addEventListener('change', (e) => {
+                const input = document.getElementById('projectPath');
+                if (input && e.target.value) {
+                  input.value = e.target.value;
+                }
+              });
+            }
+            
+            // Detected server buttons
+            const serverBtns = document.querySelectorAll('.detected-server-btn');
+            serverBtns.forEach(btn => {
+              btn.addEventListener('click', async () => {
+                const port = btn.dataset.port;
+                chrome.tabs.create({ url: `http://localhost:${port}` });
+              });
+              
+              // Hover effect
+              btn.addEventListener('mouseenter', () => {
+                btn.style.background = '#d1fae5';
+                btn.style.transform = 'translateX(4px)';
+              });
+              btn.addEventListener('mouseleave', () => {
+                btn.style.background = 'white';
+                btn.style.transform = 'translateX(0)';
+              });
+            });
+            
+            // Browse folder button
+            const browseBtn = document.getElementById('browseFolderBtn');
+            if (browseBtn) {
+              browseBtn.addEventListener('click', async () => {
+                const input = document.getElementById('projectPath');
+                
+                // Show OS-specific instructions
+                const platform = navigator.platform.toLowerCase();
+                let instructions = '';
+                
+                if (platform.includes('win')) {
+                  instructions = 'Open File Explorer → Navigate to your project → Copy the path from address bar → Paste here';
+                } else if (platform.includes('mac')) {
+                  instructions = 'Open Finder → Navigate to your project → Right-click folder → "Get Info" → Copy path → Paste here';
+                } else {
+                  instructions = 'Open file manager → Navigate to your project → Copy path → Paste here';
+                }
+                
+                const helpHTML = `
+                  <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 40px; margin-bottom: 16px;">📂</div>
+                    <div style="font-size: 14px; color: #64748b; line-height: 1.6;">
+                      ${instructions}
+                    </div>
+                  </div>
+                `;
+                
+                showCustomModal({
+                  icon: '📂',
+                  title: 'How to Get Folder Path',
+                  body: helpHTML,
+                  buttons: [{ text: 'Got it', value: true, primary: true }]
+                });
+              });
+            }
+            
+            // Auto-focus input
             const input = document.getElementById('projectPath');
             if (input) {
-              // Try to get last used path from storage
               chrome.storage.local.get(['lastProjectPath'], (data) => {
                 if (data.lastProjectPath) {
                   input.value = data.lastProjectPath;
                 }
               });
               input.focus();
-              input.select();
             }
           }, 100);
         }
@@ -536,6 +728,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           try {
             // Save path for next time
             chrome.storage.local.set({ lastProjectPath: cwd });
+            
+            // Save to recent projects
+            const projectName = cwd.split(/[/\\]/).pop() || 'Project';
+            await saveToRecentProjects(cwd, projectName);
             
             // Show loading state
             const loadingHTML = `
@@ -1052,6 +1248,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       showError('Extension not loaded. Please refresh the page.');
     }
   }, 400));
+
+  // Start New Server button
+  const startNewServerBtn = document.getElementById('startNewServerBtn');
+  if (startNewServerBtn) {
+    startNewServerBtn.addEventListener('click', async () => {
+      // Call the smart folder selection with default command
+      await showFolderSelectionAndExecute('npm run dev', 5173);
+    });
+    
+    // Hover effect
+    startNewServerBtn.addEventListener('mouseenter', () => {
+      startNewServerBtn.style.transform = 'translateY(-2px)';
+      startNewServerBtn.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.4)';
+    });
+    startNewServerBtn.addEventListener('mouseleave', () => {
+      startNewServerBtn.style.transform = 'translateY(0)';
+      startNewServerBtn.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+    });
+  }
 
   // Export Logs button (debounced)
   document.getElementById('exportLogsBtn').addEventListener('click', debounce(async () => {
