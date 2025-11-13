@@ -58,13 +58,11 @@ a = Analysis(
     ],
     hookspath=[],
     runtime_hooks=[],
-    # Exclude common test and unused modules to reduce bundle size and AV flags
-    # NOTE: Do NOT exclude 'http' - health_server.py needs http.server
+    # Exclude only truly unused modules to avoid dependency issues
     excludes=[
         'tkinter', 'pytest', 'unittest', 'test', 'tests', 'pydoc', 'doctest',
-        'email', 'html', 'xml', 'xmlrpc', 'sqlite3', 'turtle', 'distutils',
-        'setuptools', 'pkg_resources', 'idlelib', 'lib2to3', 'pdb', 'cProfile', 'profile',
-        'ensurepip', 'wsgiref', 'venv',
+        'turtle', 'idlelib', 'lib2to3', 'pdb', 'cProfile', 'profile',
+        'ensurepip', 'venv',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
