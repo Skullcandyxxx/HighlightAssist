@@ -1,19 +1,24 @@
-HighlightAssist Bridge Installed ✨
-───────────────────────────────────
+HighlightAssist Daemon - Installation Complete!
 
-What just happened
-• HighlightAssist Bridge scripts, service manager, and native messaging host were copied to %APPDATA%\HighlightAssist.
-• Optional items (desktop shortcut, auto-start) were created based on your selections.
-• Chrome/Edge native messaging manifests were registered so the extension can securely start/stop the bridge.
+The daemon has been successfully installed.
 
-Next steps
-1. Launch the “HighlightAssist Bridge” shortcut (or let the browser extension start it automatically).
-2. Open Chrome/Edge, enable the HighlightAssist extension, and use the Bridge tab to verify the daemon connection.
-3. Review the README inside the install directory for troubleshooting and advanced usage.
+Next Steps:
+1. The daemon will start automatically (system tray icon with purple "H")
+2. Install the HighlightAssist browser extension from Chrome Web Store
+3. Click the extension icon on any localhost page to start managing servers
 
-Support & Safety
-• Docs, issue tracker, and updates: https://github.com/Skullcandyxxx/HighlightAssist
-• Logs: %LOCALAPPDATA%\HighlightAssist\logs (safe to share when reporting bugs).
-• To uninstall, use “Apps & Features” or run this installer again and choose “Uninstall”.
+System Tray Icon:
+Look for the purple "H" icon in your system tray (bottom-right corner).
+Right-click it to:
+- Start/Stop the bridge
+- View connection status
+- Open logs
+- Exit the daemon
 
-Thank you for building better UI experiences with HighlightAssist!
+Auto-Start:
+If you selected "Start automatically with Windows", the daemon will launch every time you log in.
+
+Documentation:
+Visit: https://github.com/Skullcandyxxx/HighlightAssist
+
+Enjoy HighlightAssist!
