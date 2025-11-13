@@ -40,20 +40,23 @@ class PopupController {
         let fileSize = '~15 MB';
         let icon = '🪟';
         let fileName = `HighlightAssist-Setup-v${version}.exe`;
+        let installType = 'installer';
         
         // Detect OS
         if (userAgent.indexOf('mac') !== -1 || platform.indexOf('mac') !== -1) {
             detectedOS = 'macOS';
-            fileName = `HighlightAssist-macOS-v${version}.zip`;
+            fileName = `HighlightAssist-macOS-v${version}.tar.gz`;
             downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${fileName}`;
-            fileSize = '~5 MB';
+            fileSize = '~8 MB';
             icon = '🍎';
+            installType = 'package';
         } else if (userAgent.indexOf('linux') !== -1 || platform.indexOf('linux') !== -1) {
             detectedOS = 'Linux';
-            fileName = `HighlightAssist-Linux-v${version}.zip`;
+            fileName = `HighlightAssist-Linux-v${version}.deb`;
             downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${fileName}`;
-            fileSize = '~5 MB';
+            fileSize = '~10 MB';
             icon = '🐧';
+            installType = 'package';
         }
         
         // Update detected OS text
@@ -62,15 +65,21 @@ class PopupController {
             detectedOSElement.textContent = detectedOS;
         }
         
-        // Update description for zip files
+        // Update description for packages
         const installerDesc = document.getElementById('installerDesc');
-        if (installerDesc && (detectedOS === 'macOS' || detectedOS === 'Linux')) {
-            installerDesc.textContent = `Download and extract zip, then run install script`;
+        if (installerDesc) {
+            if (installType === 'package') {
+                installerDesc.textContent = `Native ${detectedOS} package - easy installation`;
+            } else {
+                installerDesc.textContent = `Direct download - no GitHub account needed`;
+            }
         }
         
         // Create download buttons
         const downloadButtons = document.getElementById('downloadButtons');
         if (downloadButtons) {
+            downloadButtons.innerHTML = ''; // Clear existing
+            
             // Primary download button for detected OS
             const primaryButton = document.createElement('a');
             primaryButton.href = downloadUrl;
@@ -79,6 +88,17 @@ class PopupController {
             primaryButton.innerHTML = `${icon} Download for ${detectedOS} <span style="opacity: 0.8; font-size: 10px;">(${fileSize})</span>`;
             primaryButton.download = fileName;
             downloadButtons.appendChild(primaryButton);
+            
+            // For Linux, add alternative formats
+            if (detectedOS === 'Linux') {
+                const rpmButton = document.createElement('a');
+                rpmButton.href = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/HighlightAssist-Linux-v${version}.rpm`;
+                rpmButton.className = 'btn btn-secondary btn-sm';
+                rpmButton.style.textDecoration = 'none';
+                rpmButton.innerHTML = '📦 Download RPM (Fedora/RHEL)';
+                rpmButton.download = `HighlightAssist-Linux-v${version}.rpm`;
+                downloadButtons.appendChild(rpmButton);
+            }
             
             // Secondary link to all downloads
             const allDownloadsLink = document.createElement('a');
