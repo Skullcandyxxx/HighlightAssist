@@ -92,11 +92,26 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok",
-        "active_connections": len(manager.active_connections),
-        "uptime": "running"
-    }
+    """Comprehensive health check"""
+    try:
+        return {
+            "status": "ok",
+            "active_connections": len(manager.active_connections),
+            "uptime": "running",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+
+@app.get("/ping")
+async def ping():
+    """Fast ping endpoint for quick health checks"""
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
 @app.get("/stats")
@@ -119,27 +134,53 @@ async def stats():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Main WebSocket endpoint for browser extension"""
-    await manager.connect(websocket)
+    """Main WebSocket endpoint for browser extension with comprehensive error handling"""
+    try:
+        await manager.connect(websocket)
+    except Exception as e:
+        print(f"❌ Error connecting WebSocket: {e}")
+        return
     
     try:
         # Send welcome message
-        await manager.send_personal_message({
-            "type": "connection",
-            "status": "connected",
-            "message": "Connected to HighlightAssist Bridge",
-            "timestamp": datetime.now().isoformat()
-        }, websocket)
+        try:
+            await manager.send_personal_message({
+                "type": "connection",
+                "status": "connected",
+                "message": "Connected to HighlightAssist Bridge",
+                "timestamp": datetime.now().isoformat()
+            }, websocket)
+        except Exception as e:
+            print(f"⚠️  Error sending welcome message: {e}")
         
         while True:
-            # Receive message from extension
-            data = await websocket.receive_json()
-            
-            if websocket in manager.connection_metadata:
-                manager.connection_metadata[websocket]["messages_received"] += 1
-            
-            message_type = data.get("type", "unknown")
-            print(f"📨 Received message: {message_type}")
+            try:
+                # Receive message from extension
+                data = await websocket.receive_json()
+                
+                if websocket in manager.connection_metadata:
+                    manager.connection_metadata[websocket]["messages_received"] += 1
+                
+                message_type = data.get("type", "unknown")
+                print(f"📨 Received message: {message_type}")
+                
+            except WebSocketDisconnect:
+                print("👋 WebSocket disconnected normally")
+                break
+            except json.JSONDecodeError as e:
+                print(f"⚠️  Invalid JSON received: {e}")
+                try:
+                    await manager.send_personal_message({
+                        "type": "error",
+                        "message": "Invalid JSON format",
+                        "error": str(e)
+                    }, websocket)
+                except:
+                    pass
+                continue
+            except Exception as e:
+                print(f"❌ Error receiving message: {e}")
+                break
             
             # Log AI requests with full details for AI monitoring
             if message_type == "ai_request":

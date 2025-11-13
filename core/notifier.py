@@ -33,10 +33,17 @@ class WindowsNotifier(Notifier):
         if not self._toaster:
             return False
         try:
-            self._toaster.show_toast(title, message, threaded=True, duration=4)
+            # Use threaded=True and suppress errors to avoid WPARAM issues
+            self._toaster.show_toast(
+                title, 
+                message, 
+                threaded=True, 
+                duration=4,
+                icon_path=None  # Don't use custom icon to avoid issues
+            )
             return True
-        except Exception:
-            logger.exception('Windows notification failed')
+        except Exception as e:
+            logger.debug(f'Windows notification failed: {e}')
             return False
 
 
