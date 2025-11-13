@@ -91,8 +91,25 @@ class ServiceManager:
                 'pid': self.bridge.pid
             }
         
+        elif action == 'shutdown':
+            logger.info('Shutdown command received')
+            self.notifier.notify('HighlightAssist', 'Shutting down...')
+            # Trigger shutdown in background to allow response to be sent
+            import threading
+            threading.Thread(target=self._delayed_shutdown, daemon=False).start()
+            return {'status': 'shutdown_initiated', 'message': 'Service manager shutting down'}
+        
         else:
             return {'error': 'unknown_action', 'action': action}
+    
+    def _delayed_shutdown(self):
+        """Delayed shutdown to allow response to be sent."""
+        import time
+        time.sleep(0.5)  # Give time for response to be sent
+        logger.info('Executing delayed shutdown...')
+        self.shutdown()
+        import sys
+        sys.exit(0)
     
     def run(self):
         """Start service manager (blocks until interrupted)."""
