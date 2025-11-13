@@ -58,7 +58,8 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,  # Disable UPX for AV compatibility
-    console=True,
+    console=False,  # No console window - runs silently with tray icon
+    icon='assets/icon-128.png',  # Application icon
     # version resource removed for compatibility
 )
 
