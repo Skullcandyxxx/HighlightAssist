@@ -117,18 +117,121 @@ async def ping():
 @app.get("/stats")
 async def stats():
     """Get statistics about active connections"""
-    connections = []
-    for ws, metadata in manager.connection_metadata.items():
-        connections.append({
-            "connected_at": metadata["connected_at"],
-            "messages_sent": metadata["messages_sent"],
-            "messages_received": metadata["messages_received"],
-            "client_info": metadata.get("client_info", {})
-        })
+    try:
+        connections = []
+        for ws, metadata in manager.connection_metadata.items():
+            connections.append({
+                "connected_at": metadata["connected_at"],
+                "messages_sent": metadata["messages_sent"],
+                "messages_received": metadata["messages_received"],
+                "client_info": metadata.get("client_info", {})
+            })
+        
+        return {
+            "total_connections": len(manager.active_connections),
+            "connections": connections
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/scan-servers")
+async def scan_servers():
+    """Scan for running localhost development servers"""
+    import socket
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    # Common dev server ports
+    ports_to_scan = [
+        3000, 3001, 3002,  # React, Node, Next.js
+        4200, 4201,         # Angular
+        5000, 5001,         # Flask, Python
+        5173, 5174, 5175,   # Vite
+        8000, 8001, 8080, 8081, 8888,  # Django, general web
+        9000, 9001          # PHP, other
+    ]
+    
+    running_servers = []
+    
+    def check_port(port):
+        """Check if a port is listening"""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.5)
+                result = sock.connect_ex(('127.0.0.1', port))
+                if result == 0:
+                    # Port is open, try to identify server type
+                    try:
+                        import urllib.request
+                        
+                        req = urllib.request.Request(f'http://localhost:{port}')
+                        req.add_header('User-Agent', 'HighlightAssist/2.0')
+                        
+                        with urllib.request.urlopen(req, timeout=1.0) as response:
+                            content = response.read().decode('utf-8', errors='ignore')[:2000]
+                            
+                            # Detect framework from headers
+                            server_header = response.headers.get('server', '').lower()
+                            content_type = response.headers.get('content-type', '').lower()
+                            
+                            framework = 'Unknown'
+                            if 'vite' in server_header or 'vite' in content.lower():
+                                framework = 'Vite'
+                            elif 'webpack' in server_header or 'webpack' in content.lower():
+                                framework = 'Webpack Dev Server'
+                            elif port in [3000, 3001, 3002]:
+                                if 'react' in content.lower():
+                                    framework = 'React'
+                                else:
+                                    framework = 'Node.js'
+                            elif port in [4200, 4201]:
+                                framework = 'Angular'
+                            elif port in [5000, 5001]:
+                                framework = 'Flask/Python'
+                            elif port in [8000, 8001]:
+                                if 'django' in content.lower():
+                                    framework = 'Django'
+                                else:
+                                    framework = 'Python Server'
+                            elif 'html' in content_type:
+                                framework = 'Web Server'
+                            
+                            return {
+                                'port': port,
+                                'status': 'running',
+                                'framework': framework,
+                                'url': f'http://localhost:{port}',
+                                'title': f'{framework} - Port {port}'
+                            }
+                    except Exception as e:
+                        # Server running but couldn't get details
+                        return {
+                            'port': port,
+                            'status': 'running',
+                            'framework': 'Unknown',
+                            'url': f'http://localhost:{port}',
+                            'title': f'Server - Port {port}'
+                        }
+        except:
+            pass
+        return None
+    
+    # Scan ports in parallel
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(check_port, port): port for port in ports_to_scan}
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                running_servers.append(result)
+    
+    # Sort by port number
+    running_servers.sort(key=lambda x: x['port'])
     
     return {
-        "total_connections": len(manager.active_connections),
-        "connections": connections
+        'servers': running_servers,
+        'total': len(running_servers),
+        'scanned_ports': len(ports_to_scan),
+        'timestamp': datetime.now().isoformat()
     }
 
 
