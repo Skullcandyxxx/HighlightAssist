@@ -338,6 +338,11 @@ begin
   end;
 end;
 
+function ShouldDeleteUserData(): Boolean;
+begin
+  Result := not KeepUserData;
+end;
+
 [Registry]
 ; Auto-start with Windows (if task selected)
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "HighlightAssist"; ValueData: """{app}\{#MyAppExeName}"""; Tasks: autostart
@@ -352,6 +357,6 @@ Filename: "{cmd}"; Parameters: "/c timeout /t 2 /nobreak >nul & taskkill /F /IM 
 ; Always delete application files
 Type: filesandordirs; Name: "{app}"
 ; Conditional: Only delete user data if user chose to remove everything
-Type: filesandordirs; Name: "{localappdata}\HighlightAssist"; Check: not KeepUserData
+Type: filesandordirs; Name: "{localappdata}\HighlightAssist"; Check: ShouldDeleteUserData
 
 
