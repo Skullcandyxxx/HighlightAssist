@@ -36,6 +36,33 @@ jobs:
         run: dir dist
         shell: powershell
 
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+        shell: powershell
+
+      - name: Build Windows Installer with Inno Setup
+        run: |
+          # Get version from tag
+          $version = if ("${{ github.ref_name }}" -match '^v') { 
+            "${{ github.ref_name }}".TrimStart('v') 
+          } else { 
+            "dev" 
+          }
+          
+          # Update version in Inno Setup script
+          (Get-Content installer-config.iss) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content installer-config.iss
+          
+          # Compile installer with Inno Setup
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
+          
+          # Create installers directory
+          mkdir -Force installers
+          
+          # Move the generated installer
+          Move-Item "Output\HighlightAssist-Setup-*.exe" "installers\HighlightAssist-Windows-Setup-v$version.exe"
+        shell: powershell
+
       - name: Create Windows ZIP package
         run: |
           # Create installers directory if it doesn't exist
@@ -109,6 +136,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
+            installers/HighlightAssist-Windows-Setup-*.exe
             installers/HighlightAssist-Windows-*.zip
             installers/HighlightAssist-Linux-*.zip
             installers/HighlightAssist-macOS-*.zip
