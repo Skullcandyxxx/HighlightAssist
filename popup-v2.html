@@ -592,8 +592,8 @@
                 <button class="btn btn-primary" id="startInspectBtn">
                     🎨 Start Inspect
                 </button>
-                <button class="btn btn-primary" id="startNewServerBtn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                    ✨ Start New Server
+                <button class="btn btn-primary" id="openDashboardBtn" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                    🌐 Open Dashboard
                 </button>
                 <button class="btn btn-secondary" id="settingsBtn">
                     ⚙️ Settings
@@ -616,6 +616,16 @@
                     <div class="install-step">
                         <span class="step-number">1</span>
                         <div class="step-content">
+                            <strong>Try Auto-Start (if installed)</strong>
+                            <p>If you've already installed the service manager, try starting it:</p>
+                            <button class="btn btn-primary btn-sm" id="startServiceBtn" style="width: 100%; margin-bottom: 8px;">
+                                🚀 Start Service Manager
+                            </button>
+                        </div>
+                    </div>
+                    <div class="install-step">
+                        <span class="step-number">2</span>
+                        <div class="step-content">
                             <strong>Download Installer for <span id="detectedOS">Your OS</span></strong>
                             <p id="installerDesc">Direct download - no GitHub account needed</p>
                             <div id="downloadButtons" style="display: flex; flex-direction: column; gap: 8px;">
@@ -624,14 +634,14 @@
                         </div>
                     </div>
                     <div class="install-step">
-                        <span class="step-number">2</span>
+                        <span class="step-number">3</span>
                         <div class="step-content">
                             <strong>Run Setup</strong>
                             <p>Quick installation with auto-start option (tray icon, no command windows)</p>
                         </div>
                     </div>
                     <div class="install-step">
-                        <span class="step-number">3</span>
+                        <span class="step-number">4</span>
                         <div class="step-content">
                             <strong>Verify Status</strong>
                             <p>Status pills above will turn green when daemon starts</p>

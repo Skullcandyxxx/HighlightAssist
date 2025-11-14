@@ -6,12 +6,24 @@
 1. **Chrome/Edge/Opera:**
    - Download latest release: https://github.com/Skullcandyxxx/HighlightAssist/releases/latest
    - Extract `HighlightAssist-v2.0.zip`
+   - **Important**: Run cleanup script before loading extension (if you've run Python scripts):
+     ```powershell
+     # Windows
+     .\cleanup.ps1
+     ```
+     ```bash
+     # Linux/macOS
+     find . -type d -name "__pycache__" -exec rm -rf {} +
+     ```
    - Open browser → Extensions → Developer mode ON
    - Click "Load unpacked" → Select extracted folder
 
 2. **Verify Installation:**
    - Extension icon appears in toolbar
    - Click icon → Popup opens
+   - **If you see error**: "Cannot load extension with file or directory name `__pycache__`"
+     - Run cleanup script above
+     - Reload extension in browser
 
 ---
 
@@ -156,6 +168,30 @@ Systemd Service:  ~/.config/systemd/user/highlightassist.service
 ---
 
 ## 🚨 Troubleshooting
+
+### ❌ Extension loading error: `__pycache__` directory
+
+**Problem**: Windows notification shows "Cannot load extension with file or directory name `__pycache__`"
+
+**Why this happens**:
+- Python creates `__pycache__/` directories when running `.py` files
+- Browsers reject files/folders starting with underscore (reserved for system use)
+- This is the #1 most common installation issue
+
+**Solution**:
+```powershell
+# Windows - Run from HighlightAssist directory
+.\cleanup.ps1
+```
+
+```bash
+# Linux/macOS
+find . -type d -name "__pycache__" -exec rm -rf {} +
+```
+
+**Prevention**: Always run `cleanup.ps1` after running Python scripts, before loading extension.
+
+---
 
 ### Extension not working
 ```

@@ -34,16 +34,32 @@ export class UIRenderer {
   createHighlightOverlay() {
     this.highlightOverlay = document.createElement('div');
     this.highlightOverlay.setAttribute('data-ha-ui', 'highlight');
+    
+    // Initial styles (will be updated by state)
+    const color = this.stateManager.get('highlightColor') || '#60a5fa';
+    const borderWidth = this.stateManager.get('borderWidth') || 2;
+    
     this.highlightOverlay.style.cssText = `
       position: fixed;
       pointer-events: none;
-      border: 2px solid #60a5fa;
-      background: rgba(96, 165, 250, 0.1);
+      border: ${borderWidth}px solid ${color};
+      background: ${this.hexToRgba(color, 0.1)};
       z-index: 999998;
       display: none;
       transition: all 0.1s ease;
     `;
     document.body.appendChild(this.highlightOverlay);
+    
+    // Subscribe to color/border changes
+    this.stateManager.subscribe('highlightColor', (newColor) => {
+      const borderWidth = this.stateManager.get('borderWidth') || 2;
+      this.highlightOverlay.style.borderColor = newColor;
+      this.highlightOverlay.style.background = this.hexToRgba(newColor, 0.1);
+    });
+    
+    this.stateManager.subscribe('borderWidth', (newWidth) => {
+      this.highlightOverlay.style.borderWidth = newWidth + 'px';
+    });
   }
   
   /**
@@ -187,7 +203,32 @@ export class UIRenderer {
             <div>Hover over elements to inspect them</div>
           </div>
           
-          <div style="margin-top: 12px;">
+          <!-- Quick Actions Grid -->
+          <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button id="ha-copy-selector" disabled style="
+              padding: 10px;
+              background: rgba(59, 130, 246, 0.2);
+              border: 1px solid rgba(59, 130, 246, 0.3);
+              border-radius: 6px;
+              color: #60a5fa;
+              font-size: 11px;
+              font-weight: 600;
+              cursor: not-allowed;
+            ">📋 Copy Selector</button>
+            
+            <button id="ha-copy-xpath" disabled style="
+              padding: 10px;
+              background: rgba(139, 92, 246, 0.2);
+              border: 1px solid rgba(139, 92, 246, 0.3);
+              border-radius: 6px;
+              color: #a78bfa;
+              font-size: 11px;
+              font-weight: 600;
+              cursor: not-allowed;
+            ">🎯 Copy XPath</button>
+          </div>
+          
+          <div style="margin-top: 8px;">
             <button id="ha-send-to-ai" disabled style="
               width: 100%;
               padding: 10px;
@@ -255,6 +296,28 @@ export class UIRenderer {
             <div style="margin-top: 16px;">
               <div style="color: #64748b; margin-bottom: 4px;">Overlay Opacity</div>
               <input type="range" id="ha-overlay-opacity" min="0.5" max="1" step="0.05" value="0.95" style="width: 100%;">
+            </div>
+            
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(71, 85, 105, 0.3);">
+              <div style="color: #64748b; margin-bottom: 8px;">Highlight Color</div>
+              <input type="color" id="ha-highlight-color" value="#8b5cf6" style="
+                width: 100%;
+                height: 42px;
+                cursor: pointer;
+                border: 1px solid rgba(71, 85, 105, 0.3);
+                border-radius: 6px;
+                background: rgba(15, 23, 42, 0.6);
+              ">
+            </div>
+            
+            <div style="margin-top: 16px;">
+              <div style="color: #64748b; margin-bottom: 8px;">
+                Border Width: <span id="ha-border-width-value" style="color: #8b5cf6; font-weight: 600;">2px</span>
+              </div>
+              <input type="range" id="ha-border-width" min="1" max="8" step="1" value="2" style="
+                width: 100%;
+                cursor: pointer;
+              ">
             </div>
           </div>
         </div>
@@ -376,8 +439,23 @@ export class UIRenderer {
       ` : ''}
     `;
     
-    // Enable send to AI button
+    // Enable copy buttons
+    const copySelectorBtn = document.getElementById('ha-copy-selector');
+    const copyXPathBtn = document.getElementById('ha-copy-xpath');
     const sendBtn = document.getElementById('ha-send-to-ai');
+    
+    if (copySelectorBtn) {
+      copySelectorBtn.disabled = false;
+      copySelectorBtn.style.background = 'rgba(59, 130, 246, 0.2)';
+      copySelectorBtn.style.cursor = 'pointer';
+    }
+    
+    if (copyXPathBtn) {
+      copyXPathBtn.disabled = false;
+      copyXPathBtn.style.background = 'rgba(139, 92, 246, 0.2)';
+      copyXPathBtn.style.cursor = 'pointer';
+    }
+    
     if (sendBtn) {
       sendBtn.disabled = false;
       sendBtn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
@@ -398,7 +476,23 @@ export class UIRenderer {
       `;
     }
     
+    // Disable all action buttons
+    const copySelectorBtn = document.getElementById('ha-copy-selector');
+    const copyXPathBtn = document.getElementById('ha-copy-xpath');
     const sendBtn = document.getElementById('ha-send-to-ai');
+    
+    if (copySelectorBtn) {
+      copySelectorBtn.disabled = true;
+      copySelectorBtn.style.background = 'rgba(59, 130, 246, 0.2)';
+      copySelectorBtn.style.cursor = 'not-allowed';
+    }
+    
+    if (copyXPathBtn) {
+      copyXPathBtn.disabled = true;
+      copyXPathBtn.style.background = 'rgba(139, 92, 246, 0.2)';
+      copyXPathBtn.style.cursor = 'not-allowed';
+    }
+    
     if (sendBtn) {
       sendBtn.disabled = true;
       sendBtn.style.background = 'rgba(71, 85, 105, 0.5)';
@@ -414,6 +508,21 @@ export class UIRenderer {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+  
+  /**
+   * Convert hex color to rgba
+   */
+  hexToRgba(hex, alpha = 1) {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse hex to RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
   
   /**

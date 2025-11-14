@@ -117,9 +117,19 @@ class PopupController {
     }
 
     setupEventListeners() {
-        // Refresh button
-        document.getElementById('refreshBtn')?.addEventListener('click', () => {
-            this.scanServers();
+        // Refresh servers button
+        document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+            await this.scanServers();
+        });
+
+        // Open Dashboard button
+        document.getElementById('openDashboardBtn')?.addEventListener('click', async () => {
+            // Only attempt to open if daemon running, otherwise inform user
+            if (!this.daemonRunning) {
+                alert('Service Manager not running. The dashboard requires the service manager to be installed and running.\n\nPlease install using the download links below.');
+                return;
+            }
+            await this.openDashboard();
         });
 
         // Start inspect button
@@ -127,15 +137,68 @@ class PopupController {
             this.startInspecting();
         });
 
-        // Start New Server button
-        document.getElementById('startNewServerBtn')?.addEventListener('click', async () => {
-            await this.showFolderBrowser();
-        });
-
         // Settings button
         document.getElementById('settingsBtn')?.addEventListener('click', () => {
-            // TODO: Open settings page
-            console.log('Settings clicked');
+            // Only open dashboard if daemon is running, otherwise show alert
+            if (this.daemonRunning) {
+                this.openDashboard('settings');
+            } else {
+                alert('Service Manager not running. Install and start the service manager to access dashboard settings.');
+            }
+        });
+
+        // Start Service Manager button (in install section)
+        document.getElementById('startServiceBtn')?.addEventListener('click', async (e) => {
+            const btn = e.target;
+            const originalText = btn.textContent;
+            
+            // Disable button during operation
+            btn.disabled = true;
+            btn.textContent = '⏳ Starting...';
+            
+            try {
+                const started = await this.startServiceManagerNative();
+                
+                if (started) {
+                    btn.textContent = '✅ Started!';
+                    btn.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                    
+                    // Hide install section after 1 second
+                    setTimeout(() => {
+                        this.toggleInstallSection(false);
+                    }, 1000);
+                } else {
+                    // Failed (likely native host not installed)
+                    btn.textContent = '📥 Not Installed';
+                    btn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                    
+                    // Show helpful message
+                    setTimeout(() => {
+                        alert(
+                            '⚠️ Native messaging host not installed.\n\n' +
+                            'The service manager auto-start feature requires the native messaging host.\n\n' +
+                            '👉 Please download and run the installer from Step 2 below.\n\n' +
+                            'After installation completes, you can click this button to start the service manager automatically.'
+                        );
+                    }, 300);
+                    
+                    btn.disabled = false;
+                    
+                    // Reset button after showing message
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '';
+                    }, 4000);
+                }
+            } catch (error) {
+                // Unexpected error (not native host missing)
+                btn.textContent = '❌ Error';
+                btn.disabled = false;
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 3000);
+            }
         });
 
         // Docs link
@@ -143,6 +206,37 @@ class PopupController {
             e.preventDefault();
             chrome.tabs.create({ url: 'https://github.com/Skullcandyxxx/HighlightAssist' });
         });
+    }
+
+    async openDashboard(tab = '') {
+        // If daemon not running, directly use fallback URL (no fetch = no console errors)
+        if (!this.daemonRunning) {
+            chrome.tabs.create({ url: 'http://localhost:9999' });
+            return;
+        }
+        
+        // Try to get dashboard URL from daemon (silently fall back if not running)
+        try {
+            const response = await fetch('http://localhost:5056/health', {
+                method: 'GET',
+                signal: AbortSignal.timeout(2000)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const dashboardUrl = data.dashboard?.url || 'http://localhost:9999';
+                const fullUrl = tab ? `${dashboardUrl}#${tab}` : dashboardUrl;
+                
+                // Open in new tab
+                chrome.tabs.create({ url: fullUrl });
+            } else {
+                // Fallback to default port (daemon not responding)
+                chrome.tabs.create({ url: 'http://localhost:9999' });
+            }
+        } catch (error) {
+            // Network error expected when daemon not running - silently fallback
+            chrome.tabs.create({ url: 'http://localhost:9999' });
+        }
     }
 
     async checkStatuses() {
@@ -158,8 +252,8 @@ class PopupController {
                 this.updateStatusPill('daemonStatus', true);
                 this.toggleInstallSection(false); // Hide installation section
                 
-                // If daemon is running, check bridge
-                await this.checkBridge();
+                // If daemon is running, get full health info
+                await this.checkHealth();
             } else {
                 this.daemonRunning = false;
                 this.bridgeRunning = false;
@@ -185,19 +279,26 @@ class PopupController {
         }
     }
 
-    async checkBridge() {
+    async checkHealth() {
         try {
-            // Use health server to check bridge status (avoids GIL issues with thread-mode bridge)
+            // Get full health info from daemon (includes bridge, dashboard, servers)
             const response = await fetch('http://localhost:5056/health', {
                 method: 'GET',
-                signal: AbortSignal.timeout(5000) // 5 seconds
+                signal: AbortSignal.timeout(5000)
             });
             
             if (response.ok) {
                 const data = await response.json();
-                // Health server returns bridge.status: "running" or "stopped"
+                
+                // Update bridge status
                 this.bridgeRunning = data.bridge?.status === 'running';
                 this.updateStatusPill('bridgeStatus', this.bridgeRunning);
+                
+                // Load servers from daemon (it already scanned them)
+                if (data.servers && Array.isArray(data.servers)) {
+                    this.servers = data.servers;
+                    this.displayServers();
+                }
             } else {
                 this.bridgeRunning = false;
                 this.updateStatusPill('bridgeStatus', false);
@@ -206,89 +307,120 @@ class PopupController {
             // Health server not available - service manager not running
             this.bridgeRunning = false;
             this.updateStatusPill('bridgeStatus', false);
-            // Don't log as error - this is expected behavior
         }
+    }
+
+    async checkBridge() {
+        // DEPRECATED: Use checkHealth() instead
+        // This method kept for backward compatibility
+        await this.checkHealth();
     }
 
     updateStatusPill(id, active) {
         const pill = document.getElementById(id);
-        if (active) {
-            pill.classList.add('active');
-        } else {
-            pill.classList.remove('active');
+        if (pill) {
+            if (active) {
+                pill.classList.add('active');
+            } else {
+                pill.classList.remove('active');
+            }
+        }
+    }
+
+    displayServers() {
+        const loadingState = document.getElementById('loadingState');
+        const serverGrid = document.getElementById('serverGrid');
+        const emptyState = document.getElementById('emptyState');
+        
+        // Hide loading
+        if (loadingState) loadingState.style.display = 'none';
+        
+        if (!this.servers || this.servers.length === 0) {
+            // Show empty state
+            if (serverGrid) serverGrid.style.display = 'none';
+            if (emptyState) emptyState.style.display = 'block';
+            return;
+        }
+        
+        // Show servers
+        if (emptyState) emptyState.style.display = 'none';
+        if (serverGrid) {
+            serverGrid.style.display = 'grid';
+            serverGrid.innerHTML = ''; // Clear existing
+            
+            this.servers.forEach(server => {
+                // Create server card inline (no async needed)
+                const card = document.createElement('div');
+                card.className = 'server-card';
+                card.onclick = () => this.connectToServer(server);
+
+                // Determine icon class based on framework
+                let iconClass = 'unknown';
+                const framework = server.framework?.toLowerCase() || '';
+                if (framework.includes('vite')) iconClass = 'vite';
+                else if (framework.includes('react')) iconClass = 'react';
+                else if (framework.includes('node')) iconClass = 'node';
+                else if (framework.includes('django')) iconClass = 'django';
+
+                // Determine emoji for framework
+                let emoji = '🌐';
+                if (iconClass === 'vite') emoji = '⚡';
+                else if (iconClass === 'react') emoji = '⚛️';
+                else if (iconClass === 'node') emoji = '🟢';
+                else if (iconClass === 'django') emoji = '🐍';
+
+                card.innerHTML = `
+                    <div class="server-icon ${iconClass}">
+                        ${emoji}
+                    </div>
+                    <div class="server-info">
+                        <div class="server-name">${server.framework || 'Unknown'}</div>
+                        <div class="server-url">${server.url}</div>
+                    </div>
+                    <div class="server-badge">Port ${server.port}</div>
+                `;
+
+                serverGrid.appendChild(card);
+            });
         }
     }
 
     async scanServers() {
-        console.log('[Popup] Scanning for servers...');
+        console.log('[Popup] Refreshing servers from daemon...');
         
         const loadingState = document.getElementById('loadingState');
         const serverGrid = document.getElementById('serverGrid');
         const emptyState = document.getElementById('emptyState');
         
         // Show loading
-        loadingState.style.display = 'block';
-        serverGrid.style.display = 'none';
-        emptyState.style.display = 'none';
-
+        if (loadingState) loadingState.style.display = 'block';
+        if (serverGrid) serverGrid.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+        
+        // Tell daemon to rescan (only if daemon is running)
+        if (!this.daemonRunning) {
+            // Daemon not running - silently show empty state
+            if (loadingState) loadingState.style.display = 'none';
+            if (emptyState) emptyState.style.display = 'block';
+            return;
+        }
+        
         try {
-            // Check if bridge is running first
-            await this.checkBridge();
-            
-            if (!this.bridgeRunning) {
-                console.log('[Popup] Bridge not running, attempting to start...');
-                // Try to start bridge via TCP command
-                const started = await this.sendBridgeCommand('start');
-                
-                if (started) {
-                    // Wait for bridge to start
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    await this.checkBridge();
-                }
-            }
-
-            if (!this.bridgeRunning) {
-                // Don't throw error, just show empty state
-                console.log('[Popup] Bridge not available - install service manager or start bridge manually');
-                loadingState.style.display = 'none';
-                emptyState.style.display = 'block';
-                return;
-            }
-
-            // Scan servers via bridge API
-            const response = await fetch('http://localhost:5055/scan-servers', {
-                method: 'GET',
-                signal: AbortSignal.timeout(10000) // 10 second timeout for scanning
+            const response = await fetch('http://localhost:5056/scan-servers', {
+                method: 'POST',
+                signal: AbortSignal.timeout(10000) // 10 seconds for scanning
             });
-
-            if (!response.ok) {
-                throw new Error('Scan failed');
-            }
-
-            const data = await response.json();
-            this.servers = data.servers || [];
-
-            console.log('[Popup] Found servers:', this.servers);
-
-            // Hide loading
-            loadingState.style.display = 'none';
-
-            if (this.servers.length > 0) {
-                // Show servers
-                this.renderServers();
-                serverGrid.style.display = 'grid';
+            
+            if (response.ok) {
+                // Get fresh server list
+                await this.checkHealth();
             } else {
-                // Show empty state
-                emptyState.style.display = 'block';
+                // Daemon might have stopped - don't log as error
+                this.displayServers(); // Show what we have
             }
-
         } catch (error) {
-            // Only log actual errors, not expected "bridge offline" state
-            if (error.message !== 'Bridge not available') {
-                console.warn('[Popup] Scan error:', error.message);
-            }
-            loadingState.style.display = 'none';
-            emptyState.style.display = 'block';
+            // Network errors are expected when daemon isn't running - don't log
+            this.displayServers(); // Show what we have
         }
     }
 
@@ -377,7 +509,38 @@ class PopupController {
             }
             return false;
         } catch (error) {
-            console.error('[Popup] Bridge command error:', error);
+            // Network error expected when daemon not running - silent failure
+            return false;
+        }
+    }
+
+    async startServiceManagerNative() {
+        /**
+         * Start service manager using Native Messaging (no CSP errors)
+         * Uses com.highlightassist.bridge native host
+         */
+        try {
+            // Send native message to start service manager
+            const response = await chrome.runtime.sendNativeMessage(
+                'com.highlightassist.bridge',
+                { command: 'start_bridge' }
+            );
+            
+            if (response.status === 'ok' || response.status === 'started') {
+                // Wait for services to boot
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Refresh status
+                await this.checkStatuses();
+                
+                return true;
+            } else {
+                // Failed to start - user will see UI feedback
+                return false;
+            }
+        } catch (error) {
+            // Native host not installed - this is expected, not an error
+            // User will see "Failed - Install Required" message from button handler
             return false;
         }
     }

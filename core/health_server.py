@@ -44,6 +44,8 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         try:
             if self.path == '/command':
                 self.handle_command()
+            elif self.path == '/scan-servers':
+                self.handle_scan_servers()
             else:
                 self.send_error(404, "Not Found")
         except Exception as e:
@@ -125,12 +127,34 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                     'port': manager.server.port
                 }
                 
+                # Check dashboard status
+                dashboard_status = None
+                if hasattr(manager, 'dashboard') and manager.dashboard:
+                    dashboard_url = manager.dashboard.get_dashboard_url()
+                    dashboard_status = {
+                        'url': dashboard_url,
+                        'port': manager.dashboard.port if hasattr(manager.dashboard, 'port') else 9999,
+                        'status': 'running' if dashboard_url else 'stopped'
+                    }
+                
+                # Get server list from project manager
+                servers = []
+                if hasattr(manager, 'project_manager') and manager.project_manager:
+                    try:
+                        # Get detected servers (fast - from cache)
+                        detected = manager.project_manager.get_detected_servers()
+                        servers = detected if detected else []
+                    except Exception as e:
+                        logger.debug(f'Could not get servers: {e}')
+                
                 health_data = {
                     'service_manager': 'running',
                     'version': '2.0.0',
                     'timestamp': datetime.now().isoformat(),
                     'bridge': bridge_status,
                     'tcp_server': tcp_status,
+                    'dashboard': dashboard_status,
+                    'servers': servers,  # Extension can display these
                     'uptime_seconds': (datetime.now() - manager.start_time).total_seconds() if hasattr(manager, 'start_time') else 0
                 }
             
@@ -208,6 +232,33 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             
         except Exception as e:
             logger.error(f'Error scanning for projects: {e}', exc_info=True)
+            self.send_error(500, str(e))
+    
+    def handle_scan_servers(self):
+        """Trigger server rescan and return fresh list"""
+        try:
+            manager = self.service_manager
+            if not manager or not hasattr(manager, 'project_manager'):
+                servers = []
+            else:
+                # Force rescan of running servers
+                logger.info('Rescanning running servers on localhost...')
+                manager.project_manager.scan_running_servers()  # Refresh cache
+                servers = manager.project_manager.get_detected_servers()
+                logger.info(f'Found {len(servers)} running servers')
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'servers': servers,
+                'total': len(servers),
+                'timestamp': datetime.now().isoformat()
+            }).encode())
+            
+        except Exception as e:
+            logger.error(f'Error scanning servers: {e}', exc_info=True)
             self.send_error(500, str(e))
 
 

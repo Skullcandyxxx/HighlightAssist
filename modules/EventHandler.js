@@ -68,6 +68,33 @@ export class EventHandler {
       this.toggleInspecting();
     });
     
+    // Copy selector button
+    const copySelectorBtn = panel.querySelector('#ha-copy-selector');
+    copySelectorBtn?.addEventListener('click', () => {
+      const selector = this.stateManager.get('currentSelector');
+      if (selector) {
+        navigator.clipboard.writeText(selector).then(() => {
+          this.stateManager.addLog('Copied selector to clipboard', 'success', 'events');
+        }).catch(err => {
+          this.stateManager.addLog('Failed to copy selector: ' + err.message, 'error', 'events');
+        });
+      }
+    });
+    
+    // Copy XPath button
+    const copyXPathBtn = panel.querySelector('#ha-copy-xpath');
+    copyXPathBtn?.addEventListener('click', () => {
+      const element = this.stateManager.get('selectedElement');
+      if (element) {
+        const xpath = this.elementAnalyzer.getXPath(element);
+        navigator.clipboard.writeText(xpath).then(() => {
+          this.stateManager.addLog('Copied XPath to clipboard', 'success', 'events');
+        }).catch(err => {
+          this.stateManager.addLog('Failed to copy XPath: ' + err.message, 'error', 'events');
+        });
+      }
+    });
+    
     // Send to AI button
     const sendBtn = panel.querySelector('#ha-send-to-ai');
     sendBtn?.addEventListener('click', () => {
@@ -94,6 +121,23 @@ export class EventHandler {
     const opacitySlider = panel.querySelector('#ha-overlay-opacity');
     opacitySlider?.addEventListener('input', (e) => {
       this.stateManager.set('overlayOpacity', parseFloat(e.target.value));
+    });
+    
+    // Highlight color picker
+    const colorPicker = panel.querySelector('#ha-highlight-color');
+    colorPicker?.addEventListener('input', (e) => {
+      this.stateManager.set('highlightColor', e.target.value);
+    });
+    
+    // Border width slider
+    const borderSlider = panel.querySelector('#ha-border-width');
+    const borderValue = panel.querySelector('#ha-border-width-value');
+    borderSlider?.addEventListener('input', (e) => {
+      const width = parseInt(e.target.value);
+      this.stateManager.set('borderWidth', width);
+      if (borderValue) {
+        borderValue.textContent = width + 'px';
+      }
     });
   }
   

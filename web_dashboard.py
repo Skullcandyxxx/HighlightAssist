@@ -70,7 +70,115 @@ class DashboardManager:
         
         self.active_connections: List[WebSocket] = []
         self.host = "127.0.0.1"
-        self.port = 9999
+        self.port = None  # Will be set by _find_available_port
+        self.server = None
+        self.thread = None
+        
+        # Dashboard port state file for other components to find it
+        self.port_file = Path.home() / '.highlightassist' / 'dashboard_port.txt'
+        if getattr(__import__('sys'), 'platform', '').startswith('win'):
+            import os
+            self.port_file = Path(os.environ.get('LOCALAPPDATA', '.')) / 'HighlightAssist' / 'dashboard_port.txt'
+        self.port_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    def _check_if_our_dashboard(self, port: int) -> bool:
+        """Check if the service on this port is our dashboard.
+        
+        Returns True if it's our dashboard, False otherwise.
+        """
+        try:
+            # Use urllib instead of requests to avoid extra dependency
+            import urllib.request
+            import json
+            
+            url = f'http://127.0.0.1:{port}/api/status'
+            req = urllib.request.Request(url, headers={'User-Agent': 'HighlightAssist'})
+            
+            with urllib.request.urlopen(req, timeout=1) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    # Check if response has our expected structure
+                    return 'daemon' in data and 'bridge' in data
+        except Exception as e:
+            logger.debug(f"Health check failed for port {port}: {e}")
+        
+        return False
+    
+    def _find_available_port(self, start_port: int = 9999, end_port: int = 10010) -> int:
+        """Find an available port, preferring 9999.
+        
+        Smart logic:
+        1. Try port 9999 first (preferred)
+        2. If 9999 is taken, check if it's our dashboard (health check)
+        3. If it's our dashboard, return 9999 (we'll skip starting a new one)
+        4. If it's not ours, try fallback ports 10000-10010
+        5. Save the chosen port to a file so other components can find it
+        
+        Returns:
+            Port number to use
+        """
+        preferred_port = 9999
+        
+        # First check preferred port
+        if self._is_port_available(preferred_port):
+            logger.info(f"Dashboard will use preferred port {preferred_port}")
+            self._save_port(preferred_port)
+            return preferred_port
+        
+        # Port 9999 is taken - check if it's our dashboard
+        if self._check_if_our_dashboard(preferred_port):
+            logger.info(f"Dashboard already running on port {preferred_port} - will skip starting new instance")
+            return None  # Signal to skip starting
+        
+        # Port is taken by something else - try fallback ports
+        logger.warning(f"Port {preferred_port} is in use by another application")
+        
+        for port in range(start_port + 1, end_port + 1):
+            if self._is_port_available(port):
+                logger.warning(f"Dashboard will use fallback port {port}")
+                if service_manager and hasattr(service_manager, 'notifier'):
+                    service_manager.notifier.notify(
+                        'HighlightAssist Dashboard',
+                        f'Port 9999 in use, dashboard on http://127.0.0.1:{port}'
+                    )
+                self._save_port(port)
+                return port
+        
+        # No ports available
+        logger.error(f"Could not find available port in range {start_port}-{end_port}")
+        return None
+    
+    def _is_port_available(self, port: int) -> bool:
+        """Check if a port is available (not in use)."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(('127.0.0.1', port))
+                return True
+        except OSError:
+            return False
+    
+    def _save_port(self, port: int):
+        """Save the dashboard port to a file for other components."""
+        try:
+            self.port_file.write_text(str(port))
+        except Exception as e:
+            logger.error(f"Failed to save dashboard port: {e}")
+    
+    def get_dashboard_url(self) -> Optional[str]:
+        """Get the dashboard URL (works even if using fallback port)."""
+        if self.port:
+            return f"http://127.0.0.1:{self.port}"
+        
+        # Try to read from port file
+        try:
+            if self.port_file.exists():
+                port = int(self.port_file.read_text().strip())
+                return f"http://127.0.0.1:{port}"
+        except:
+            pass
+        
+        return "http://127.0.0.1:9999"  # Default fallback
         
     async def broadcast_status(self, data: dict):
         """Broadcast status updates to all connected clients"""
@@ -189,7 +297,14 @@ class DashboardManager:
             return False
     
     async def start(self):
-        """Start the dashboard server"""
+        """Start the dashboard server (or skip if already running)"""
+        # Find available port (may return None if dashboard already running)
+        self.port = self._find_available_port()
+        
+        if self.port is None:
+            logger.info("Dashboard already running on port 9999 - skipping start")
+            return
+        
         config = uvicorn.Config(
             app,
             host=self.host,
@@ -245,16 +360,18 @@ async def restart_bridge():
 
 @app.post("/api/bridge/autostart")
 async def toggle_autostart(request: Request):
-    """Toggle auto-start"""
+    """Toggle auto-start - saves to preferences"""
     data = await request.json()
     enabled = data.get('enabled', False)
     
-    if bridge_controller:
-        # This will need to be implemented in bridge_controller
-        setattr(bridge_controller, 'auto_start_enabled', enabled)
+    if service_manager and hasattr(service_manager, 'preferences'):
+        # Save to preferences for persistence
+        service_manager.preferences.auto_start_bridge = enabled
+        service_manager.auto_start_bridge = enabled
+        
         return JSONResponse({"success": True, "enabled": enabled})
     
-    return JSONResponse({"success": False, "message": "Bridge controller not available"}, status_code=500)
+    return JSONResponse({"success": False, "message": "Service manager not available"}, status_code=500)
 
 @app.post("/api/project/start/{port}")
 async def start_project(port: int):
@@ -277,6 +394,55 @@ async def open_server(port: int):
     url = f"http://localhost:{port}"
     webbrowser.open(url)
     return JSONResponse({"success": True, "message": f"Opened {url}"})
+
+# === Preferences API ===
+
+@app.get("/api/preferences")
+async def get_preferences():
+    """Get all user preferences"""
+    if service_manager and hasattr(service_manager, 'preferences'):
+        return JSONResponse(service_manager.preferences.get_all())
+    return JSONResponse({}, status_code=500)
+
+@app.get("/api/preferences/{key}")
+async def get_preference(key: str):
+    """Get a specific preference"""
+    if service_manager and hasattr(service_manager, 'preferences'):
+        value = service_manager.preferences.get(key)
+        return JSONResponse({"key": key, "value": value})
+    return JSONResponse({"error": "Preferences not available"}, status_code=500)
+
+@app.post("/api/preferences/{key}")
+async def set_preference(key: str, request: Request):
+    """Set a specific preference"""
+    if service_manager and hasattr(service_manager, 'preferences'):
+        body = await request.json()
+        value = body.get('value')
+        service_manager.preferences.set(key, value)
+        
+        # Apply immediately for certain settings
+        if key == 'auto_start_bridge':
+            service_manager.auto_start_bridge = value
+        
+        return JSONResponse({"success": True, "key": key, "value": value})
+    return JSONResponse({"error": "Preferences not available"}, status_code=500)
+
+@app.post("/api/preferences")
+async def update_preferences(request: Request):
+    """Update multiple preferences at once"""
+    if service_manager and hasattr(service_manager, 'preferences'):
+        body = await request.json()
+        service_manager.preferences.update_multiple(body)
+        return JSONResponse({"success": True, "updated": len(body)})
+    return JSONResponse({"error": "Preferences not available"}, status_code=500)
+
+@app.post("/api/preferences/reset")
+async def reset_preferences():
+    """Reset all preferences to defaults"""
+    if service_manager and hasattr(service_manager, 'preferences'):
+        service_manager.preferences.reset()
+        return JSONResponse({"success": True, "message": "Preferences reset to defaults"})
+    return JSONResponse({"error": "Preferences not available"}, status_code=500)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

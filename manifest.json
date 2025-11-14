@@ -20,7 +20,7 @@
     "http://*.local/*"
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup-v2.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -49,7 +49,6 @@
     {
       "resources": [
         "injected.js",
-        "overlay-gui.js",
         "overlay-gui-oop.js",
         "logger.js",
         "error-handler.js",

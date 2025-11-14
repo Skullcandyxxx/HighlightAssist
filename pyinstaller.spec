@@ -4,16 +4,23 @@
 # Updated for OOP modular architecture
 import os
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, copy_metadata
 
-# Collect ALL Jinja2 files (submodules, data files, binaries)
-jinja2_datas, jinja2_binaries, jinja2_hiddenimports = collect_all('jinja2')
+# === JINJA2 BUNDLING (Required for FastAPI dashboard templating) ===
+# Professional approach: Collect everything explicitly, don't rely on auto-detection
+jinja2_hiddenimports = collect_submodules('jinja2')
+jinja2_datas = collect_data_files('jinja2', include_py_files=True)
+jinja2_datas += copy_metadata('jinja2')
+
+# MarkupSafe is Jinja2's dependency - must be included
+markupsafe_hiddenimports = collect_submodules('markupsafe')
+markupsafe_datas = copy_metadata('markupsafe')
 
 # --- Metadata for version info and AV trust ---
 a = Analysis(
     ['service_manager_v2.py'],
     pathex=['.'],
-    binaries=jinja2_binaries,  # Include Jinja2 binaries (DLLs if any)
+    binaries=[],
     datas=[
         ('assets/icon-128.png', 'assets'),
         ('core/__init__.py', 'core'),
@@ -27,7 +34,7 @@ a = Analysis(
         ('web_dashboard.py', '.'),
         ('dashboard/index.html', 'dashboard'),
         # tray_icon.py is imported as a module, NOT a data file!
-    ] + jinja2_datas,  # Add all Jinja2 data files (templates, etc.)
+    ] + jinja2_datas + markupsafe_datas,  # Add Jinja2 and MarkupSafe data files
     hiddenimports=[
         # Core dependencies
         'fastapi',
@@ -80,7 +87,7 @@ a = Analysis(
         'core.bridge_monitor',
         'core.project_manager',
         'web_dashboard',
-    ] + jinja2_hiddenimports,  # Add ALL Jinja2 hidden imports automatically
+    ] + jinja2_hiddenimports + markupsafe_hiddenimports,  # Add collected Jinja2 and MarkupSafe imports
     hookspath=[],
     runtime_hooks=[],
     # Exclude only truly unused modules to avoid dependency issues

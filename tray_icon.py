@@ -103,63 +103,34 @@ class HighlightAssistTray:
         return image
     
     def create_menu(self) -> pystray.Menu:
-        """Create context menu matching extension theme"""
-        # Build unified servers menu
-        servers_items = self._build_servers_menu()
+        """Create simplified tray menu focused on dashboard"""
+        # Bridge status for display
+        bridge_status = "🟢 Running" if self.bridge.is_running else "⚫ Stopped"
         
         return pystray.Menu(
-            # === HEADER ===
-            pystray.MenuItem(
-                'HighlightAssist',
-                lambda: None,
-                enabled=False  # Title item (disabled)
-            ),
-            pystray.Menu.SEPARATOR,
-            
-            # === BRIDGE CONTROL ===
-            pystray.MenuItem(
-                'Start Bridge',
-                self._on_start,
-                enabled=lambda item: not self.bridge.is_running
-            ),
-            pystray.MenuItem(
-                'Stop Bridge',
-                self._on_stop,
-                enabled=lambda item: self.bridge.is_running
-            ),
-            pystray.MenuItem(
-                'Restart Bridge',
-                self._on_restart,
-                enabled=lambda item: self.bridge.is_running
-            ),
-            pystray.MenuItem(
-                'Auto-start Bridge',
-                self._on_toggle_autostart,
-                checked=lambda item: self.service_manager.auto_start_bridge if self.service_manager else True,
-                enabled=lambda item: self.service_manager is not None
-            ),
-            pystray.Menu.SEPARATOR,
-            
-            # === SERVERS (COMBINED START/STOP) ===
-            pystray.MenuItem(
-                'Servers',
-                pystray.Menu(*servers_items)
-            ),
-            pystray.Menu.SEPARATOR,
-            
-            # === UTILITIES ===
+            # === PRIMARY ACTION: OPEN DASHBOARD ===
             pystray.MenuItem(
                 '🌐 Open Dashboard',
                 self._on_open_dashboard,
                 default=True  # Double-click action
             ),
+            pystray.Menu.SEPARATOR,
+            
+            # === STATUS DISPLAY ===
             pystray.MenuItem(
-                'Status',
+                f'Bridge: {bridge_status}',
                 self._on_status
             ),
             pystray.MenuItem(
                 'Open Logs',
                 self._on_open_logs
+            ),
+            pystray.Menu.SEPARATOR,
+            
+            # === QUICK ACTIONS ===
+            pystray.MenuItem(
+                'Restart Service',
+                self._on_restart_service
             ),
             pystray.Menu.SEPARATOR,
             
@@ -855,10 +826,34 @@ class HighlightAssistTray:
     def _on_open_dashboard(self, icon, item):
         """Open web dashboard in default browser"""
         import webbrowser
-        dashboard_url = 'http://127.0.0.1:9999'
+        
+        # Get dashboard URL dynamically (handles fallback ports)
+        dashboard_url = self._get_dashboard_url()
+        
         webbrowser.open(dashboard_url)
-        self.notifier.notify('HighlightAssist', 'Opening dashboard...')
+        self.notifier.notify('HighlightAssist', f'Opening dashboard: {dashboard_url}')
         return True
+    
+    def _get_dashboard_url(self) -> str:
+        """Get the dashboard URL from port file or preferences."""
+        from pathlib import Path
+        import os
+        
+        # Try to read from port file (most reliable)
+        if os.name == 'nt':
+            port_file = Path(os.environ.get('LOCALAPPDATA', '.')) / 'HighlightAssist' / 'dashboard_port.txt'
+        else:
+            port_file = Path.home() / '.highlightassist' / 'dashboard_port.txt'
+        
+        try:
+            if port_file.exists():
+                port = int(port_file.read_text().strip())
+                return f'http://127.0.0.1:{port}'
+        except Exception as e:
+            print(f"Error reading dashboard port file: {e}")
+        
+        # Fallback to default port
+        return 'http://127.0.0.1:9999'
     
     def _on_exit(self, icon, item):
         """Exit application"""
@@ -867,6 +862,42 @@ class HighlightAssistTray:
             self.bridge.stop()
         icon.stop()
         self._running = False
+        return True
+    
+    def _on_restart_service(self, icon, item):
+        """Restart entire service manager"""
+        try:
+            self.notifier.notify('HighlightAssist', 'Restarting service...')
+            
+            # Stop bridge gracefully
+            if self.bridge.is_running:
+                self.bridge.stop()
+            
+            # Update icon to idle state
+            if self.icon:
+                self.icon.icon = self.create_icon_image('idle')
+            
+            # Wait a moment for cleanup
+            import time
+            time.sleep(1)
+            
+            # Restart bridge if auto-start enabled
+            if self.service_manager and self.service_manager.auto_start_bridge:
+                self.bridge.start()
+                if self.icon:
+                    self.icon.icon = self.create_icon_image('active')
+                self.notifier.notify('HighlightAssist', 'Service restarted - Bridge running')
+            else:
+                self.notifier.notify('HighlightAssist', 'Service restarted - Bridge stopped')
+            
+            # Refresh menu to update status
+            if self.icon:
+                self.icon.menu = self.create_menu()
+                
+        except Exception as e:
+            print(f"❌ Failed to restart service: {e}")
+            self.notifier.notify('HighlightAssist', f'Restart failed: {str(e)}')
+        
         return True
     
     def run(self):

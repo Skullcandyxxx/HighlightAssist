@@ -21,6 +21,22 @@ native_host/dist/
 *.crx
 *.pem
 
+# Extension packaging
+extension-package/
+HighlightAssist-Extension-*.zip
+
+# Release packaging
+release-v*/
+HighlightAssist-Complete-*.zip
+HighlightAssist-ServiceManager-*.zip
+
+# Virtual environments
+.venv/
+venv/
+venv-build/
+ENV/
+env/
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -47,3 +63,24 @@ pnpm-lock.yaml
 MARKETING.md
 LAUNCH_CHECKLIST.md
 README.old.md
+README_OLD.md
+REBUILD_PLAN.md
+OOP_REFACTOR_SUMMARY.md
+CRITICAL_BUG_REPORT.md
+RELEASE_SUMMARY.md
+RELEASE_v*.md
+INSTALLER_UPDATE_SUMMARY.md
+SERVICE_MANAGER_V2_SUMMARY.md
+MIGRATION_GUIDE.md
+INSTALLER-CHECKLIST.md
+GITHUB_RELEASE_FIX.md
+ARCHITECTURE_COMPARISON.md
+ARCHITECTURE_VISUAL.md
+ORGANIZATION_PLAN.md
+
+# Old/backup files
+*.backup
+*.old
+*_old.*
+test_*.py
+test_*.spec
