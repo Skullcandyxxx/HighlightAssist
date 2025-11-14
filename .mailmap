@@ -1,0 +1,10 @@
+# .mailmap - Unifies commit author identities
+# This ensures all commits show as skullcandyxxx
+
+# Main identity
+skullcandyxxx <gwaelg@gmail.com>
+
+# Map old emails to main identity
+skullcandyxxx <gwaelg@gmail.com> Wael Ghiloufi <ghil0001@algonquinlive.com>
+skullcandyxxx <gwaelg@gmail.com> Wael Ghiloufi <gwaelg@gmail.com>
+skullcandyxxx <gwaelg@gmail.com> skullcandyxxx <ghil0001@algonquinlive.com>

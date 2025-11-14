@@ -1,0 +1,56 @@
+# Git Attributes for HighlightAssist
+# Ensures consistent line endings and language detection
+
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Force LF for shell scripts (cross-platform compatibility)
+*.sh text eol=lf
+
+# Force CRLF for Windows batch files
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries
+*.exe binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.zip binary
+
+# Mark documentation and internal files as documentation (excludes from language stats)
+*.md linguist-documentation
+CHANGELOG*.md linguist-documentation
+TROUBLESHOOTING.md linguist-documentation
+TESTING-GUIDE.md linguist-documentation
+LICENSE linguist-documentation
+
+# Mark internal/development files as vendored (hides from GitHub stats)
+test*.py linguist-vendored
+test*.spec linguist-vendored
+*_old.* linguist-vendored
+*.backup linguist-vendored
+REBUILD_PLAN.md linguist-vendored
+OOP_REFACTOR_SUMMARY.md linguist-vendored
+CRITICAL_BUG_REPORT.md linguist-vendored
+RELEASE_SUMMARY.md linguist-vendored
+INSTALLER_UPDATE_SUMMARY.md linguist-vendored
+SERVICE_MANAGER_V2_SUMMARY.md linguist-vendored
+MIGRATION_GUIDE.md linguist-vendored
+INSTALLER-CHECKLIST.md linguist-vendored
+GITHUB_RELEASE_FIX.md linguist-vendored
+ARCHITECTURE_COMPARISON.md linguist-vendored
+ARCHITECTURE_VISUAL.md linguist-vendored
+ORGANIZATION_PLAN.md linguist-vendored
+
+# Mark build scripts as generated (hides from diffs)
+build*.ps1 linguist-generated
+package*.ps1 linguist-generated
+cleanup.ps1 linguist-generated
+diagnose-ports.ps1 linguist-generated
+
+# Python
+*.py diff=python

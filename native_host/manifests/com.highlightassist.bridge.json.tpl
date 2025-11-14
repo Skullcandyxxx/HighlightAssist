@@ -1,9 +1,0 @@
-{
-  "name": "com.highlightassist.bridge",
-  "description": "HighlightAssist Bridge Native Host",
-  "path": "{{HOST_PATH}}",
-  "type": "stdio",
-  "allowed_origins": [
-    "chrome-extension://{{EXTENSION_ID}}/"
-  ]
-}
