@@ -42,6 +42,8 @@ export class StateManagerEnhanced {
       autoLockMode: false,
       keyboardShortcutsEnabled: true,
       overlayOpacity: 0.95,
+      highlightColor: '#8b5cf6',  // Purple highlight
+      borderWidth: 2,              // 2px border
       
       // History
       inspectionHistory: [],
@@ -105,7 +107,7 @@ export class StateManagerEnhanced {
   }
   
   shouldAutoSave(key) {
-    return ['bridgeUrl', 'autoLockMode', 'keyboardShortcutsEnabled', 'overlayOpacity', 'inspectionHistory'].includes(key);
+    return ['bridgeUrl', 'autoLockMode', 'keyboardShortcutsEnabled', 'overlayOpacity', 'highlightColor', 'borderWidth', 'inspectionHistory'].includes(key);
   }
   
   scheduleSave() {
@@ -119,6 +121,8 @@ export class StateManagerEnhanced {
       autoLockMode: this.state.autoLockMode,
       keyboardShortcutsEnabled: this.state.keyboardShortcutsEnabled,
       overlayOpacity: this.state.overlayOpacity,
+      highlightColor: this.state.highlightColor,
+      borderWidth: this.state.borderWidth,
       inspectionHistory: this.state.inspectionHistory.slice(-20)
     };
     
@@ -139,6 +143,8 @@ export class StateManagerEnhanced {
           autoLockMode: settings.autoLockMode || false,
           keyboardShortcutsEnabled: settings.keyboardShortcutsEnabled !== false,
           overlayOpacity: settings.overlayOpacity || 0.95,
+          highlightColor: settings.highlightColor || '#8b5cf6',
+          borderWidth: settings.borderWidth || 2,
           inspectionHistory: settings.inspectionHistory || []
         });
         console.log('[StateManager] Settings loaded');

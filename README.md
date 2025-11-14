@@ -119,12 +119,30 @@ Send structured element data to your preferred AI:
 git clone https://github.com/Skullcandyxxx/HighlightAssist.git
 cd HighlightAssist
 
-# Install Python dependencies
+# Prevent Python __pycache__ in extension directory (IMPORTANT!)
+# Windows (PowerShell - run once):
+.\setup-dev-env.ps1
+
+# Linux/macOS (add to ~/.bashrc or ~/.zshrc):
+echo 'export PYTHONDONTWRITEBYTECODE=1' >> ~/.bashrc
+source ~/.bashrc
+
+# Install Python dependencies (for service manager)
 pip install -r requirements.txt
 
+# Package extension for browser (removes 300+ MB of build artifacts!)
+# Windows:
+.\package-extension.ps1
+
+# Linux/macOS:
+./package-extension.sh
+
 # Load extension in browser
-# Chrome: chrome://extensions → Load unpacked → Select HighlightAssist directory
+# Chrome: chrome://extensions → Load unpacked → Select extension-package/ directory
+# Size: ~200 KB instead of 300+ MB!
 ```
+
+**Note**: Never load the repository root directly! It contains virtual environments, build artifacts, and Python dependencies totaling 300+ MB. Always use the `extension-package/` directory created by the packaging script.
 
 ---
 
@@ -169,6 +187,27 @@ pip install -r requirements.txt
 | `Ctrl+Shift+H` | Toggle inspection mode |
 | `Ctrl+Click` | Lock element (when auto-lock disabled) |
 | `Esc` | Close overlay panel |
+
+---
+
+## 🔧 Troubleshooting
+
+### Extension Not Working on This Page
+
+**Problem**: Popup shows "Extension not loaded on this page"
+
+**Solution**: Extension only works on localhost URLs. Refresh the page after loading extension.
+
+### Dashboard Shows "Service Manager Not Running"
+
+**Problem**: Status pills show red/offline
+
+**Solution**:
+1. Install service manager using installer (see Installation section)
+2. Or manually start: `python service_manager_v2.py`
+3. Verify dashboard opens at `http://localhost:9999`
+
+For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) or [GitHub Issues](https://github.com/Skullcandyxxx/HighlightAssist/issues).
 
 ---
 

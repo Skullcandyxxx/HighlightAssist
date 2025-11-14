@@ -419,9 +419,48 @@
         input:checked + .toggle-slider:before {
             transform: translateX(30px);
         }
+
+        /* Toast animations */
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+```
     <div class="container">
         <div class="header">
             <h1>⚡ HighlightAssist</h1>
@@ -473,14 +512,24 @@
                                 <span class="stat-value">5055</span>
                             </div>
                             <div class="stat-row">
-                                <span class="stat-label">Auto-start</span>
-                                <span class="stat-value" id="bridge-autostart">Disabled</span>
+                                <span class="stat-label">Mode</span>
+                                <span class="stat-value" id="bridge-mode">In-Process</span>
                             </div>
                         </div>
-                        <div class="btn-group">
-                            <button class="btn btn-success" onclick="bridgeAction('start')">▶️ Start</button>
-                            <button class="btn btn-danger" onclick="bridgeAction('stop')">⏹️ Stop</button>
-                            <button class="btn btn-warning" onclick="bridgeAction('restart')">🔄 Restart</button>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500;">Auto-start on daemon launch</span>
+                                <label class="toggle">
+                                    <input type="checkbox" id="auto-start-toggle" onchange="toggleAutoStart(this.checked)">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <p style="margin-top: 8px; font-size: 0.85em; color: #666;">
+                                Bridge will automatically start when the daemon starts
+                            </p>
+                        </div>
+                        <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.85em; color: #666;">
+                            ℹ️ Use the system tray menu to start/stop the bridge manually
                         </div>
                     </div>
 
@@ -630,8 +679,11 @@
                     bridgeCard.classList.remove('success');
                 }
                 
-                document.getElementById('bridge-autostart').textContent = data.bridge.auto_start ? 'Enabled' : 'Disabled';
-                document.getElementById('autostart-toggle').checked = data.bridge.auto_start;
+                // Update auto-start toggle (matches our new ID)
+                const autoStartToggle = document.getElementById('auto-start-toggle');
+                if (autoStartToggle) {
+                    autoStartToggle.checked = data.bridge.auto_start;
+                }
             }
 
             // Servers
@@ -717,16 +769,49 @@
         // Toggle auto-start
         async function toggleAutoStart(enabled) {
             try {
-                const response = await fetch('/api/bridge/autostart', {
+                // Save to preferences instead of old bridge/autostart endpoint
+                const response = await fetch('/api/preferences/auto_start_bridge', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled })
+                    body: JSON.stringify({ value: enabled })
                 });
                 const data = await response.json();
-                console.log('Auto-start:', enabled);
+                
+                if (data.success) {
+                    console.log('Auto-start preference saved:', enabled);
+                    showToast(enabled ? 'Auto-start enabled' : 'Auto-start disabled', 'success');
+                } else {
+                    showToast('Failed to save preference', 'error');
+                }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error saving auto-start:', error);
+                showToast('Error saving preference', 'error');
             }
+        }
+
+        // Toast notification system
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#6366f1'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
         // Open server

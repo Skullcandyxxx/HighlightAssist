@@ -245,4 +245,40 @@ export class ElementAnalyzer {
     
     return path.join(' > ');
   }
+  
+  /**
+   * Generate XPath for element
+   */
+  getXPath(element) {
+    if (!element) return '';
+    
+    // Use ID if available (shortcut)
+    if (element.id) {
+      return `//*[@id="${element.id}"]`;
+    }
+    
+    const parts = [];
+    let current = element;
+    
+    while (current && current.nodeType === Node.ELEMENT_NODE) {
+      let index = 0;
+      let sibling = current.previousSibling;
+      
+      // Count preceding siblings with same tag name
+      while (sibling) {
+        if (sibling.nodeType === Node.ELEMENT_NODE && sibling.tagName === current.tagName) {
+          index++;
+        }
+        sibling = sibling.previousSibling;
+      }
+      
+      const tagName = current.tagName.toLowerCase();
+      const pathIndex = index > 0 ? `[${index + 1}]` : '';
+      parts.unshift(tagName + pathIndex);
+      
+      current = current.parentNode;
+    }
+    
+    return '/' + parts.join('/');
+  }
 }

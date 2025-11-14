@@ -23,6 +23,7 @@ from core.tcp_server import TCPControlServer
 from core.health_server import HealthCheckServer
 from core.bridge_monitor import BridgeMonitor
 from core.project_manager import ProjectManager
+from core.preferences import PreferencesManager
 from web_dashboard import DashboardManager
 
 # Try to import tray icon
@@ -75,6 +76,14 @@ class ServiceManager:
     """Main service manager - coordinates all components."""
     
     def __init__(self, control_port: int = 5054, bridge_port: int = 5055, health_port: int = 5056, use_tray: bool = True, auto_start_bridge: bool = True):
+        # Load user preferences first
+        self.preferences = PreferencesManager()
+        
+        # Use preferences for initialization (command-line args override preferences)
+        bridge_port = bridge_port if bridge_port != 5055 else self.preferences.get('bridge_port', 5055)
+        health_port = health_port if health_port != 5056 else self.preferences.get('dashboard_port', 9999)
+        auto_start_bridge = self.preferences.get('auto_start_bridge', auto_start_bridge)
+        
         self.bridge = BridgeController(port=bridge_port)
         self.server = TCPControlServer(port=control_port)
         self.health_server = HealthCheckServer(port=health_port, service_manager=self)
@@ -105,6 +114,7 @@ class ServiceManager:
         logger.info(f'TCP Control: port {control_port}')
         logger.info(f'Bridge: port {bridge_port}')
         logger.info(f'Health Check: port {health_port}')
+        logger.info(f'Auto-start bridge: {auto_start_bridge}')
     
     def _on_bridge_crash(self):
         """Called when bridge crashes"""
@@ -276,6 +286,11 @@ if __name__ == '__main__':
     # CRITICAL: Detect if we're pystray's GUI child process
     # pystray.Icon.run() on Windows re-executes this .exe for GUI thread
     # The child should ONLY run the tray GUI, not re-initialize services
+    # 
+    # DISABLED FOR FROZEN MODE: psutil import fails in PyInstaller bundles
+    # causing silent crashes. Tray icon works fine without this check.
+    # Original logic kept for reference but commented out.
+    '''
     try:
         import psutil
         current_pid = os.getpid()
@@ -288,6 +303,7 @@ if __name__ == '__main__':
     except Exception:
         # psutil failed or parent not detectable - assume we're the main process
         pass
+    '''
     
     # DEBUG: Log immediately to see how many times this runs
     logger.info(f'========== SERVICE MANAGER STARTING (PID {os.getpid()}) ==========')

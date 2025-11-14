@@ -1,5 +1,8 @@
 @echo off
 REM Auto-setup script for HighlightAssist Bridge
+REM Prevent __pycache__ creation
+set PYTHONDONTWRITEBYTECODE=1
+
 echo ========================================
 echo   HighlightAssist Bridge Auto-Setup
 echo ========================================
