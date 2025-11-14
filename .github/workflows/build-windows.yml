@@ -35,22 +35,31 @@ jobs:
         run: dir dist
         shell: powershell
 
-      - name: Install Inno Setup
+      - name: Create Windows ZIP package
         run: |
-          choco install innosetup -y
-        shell: powershell
-
-      - name: Build Professional Windows Installer
-        run: |
-          # Copy icon to expected location
-          mkdir -Force icons
-          copy assets\icon-128.png icons\icon128.png
+          # Create installers directory if it doesn't exist
+          mkdir -Force installers
           
-          # Create installer assets
-          mkdir -Force installer-assets
+          # Get version from tag or use "dev"
+          $version = if ("${{ github.ref_name }}" -match '^v') { 
+            "${{ github.ref_name }}".TrimStart('v') 
+          } else { 
+            "dev" 
+          }
           
-          # Build installer with Inno Setup
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
+          # Package Windows installer (includes .exe)
+          Compress-Archive -Path `
+            "dist\HighlightAssist-Service-Manager.exe", `
+            "bridge.py", `
+            "service_manager_v2.py", `
+            "core", `
+            "install-windows.bat", `
+            "start-service.bat", `
+            "start-bridge.bat", `
+            "requirements.txt", `
+            "README.md", `
+            "LICENSE" `
+            -DestinationPath "installers\HighlightAssist-Windows-v$version.zip" -Force
         shell: powershell
 
       - name: Create Linux/macOS packages
@@ -59,7 +68,11 @@ jobs:
           mkdir -Force installers
           
           # Get version from tag
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          $version = if ("${{ github.ref_name }}" -match '^v') { 
+            "${{ github.ref_name }}".TrimStart('v') 
+          } else { 
+            "dev" 
+          }
           
           # Package Linux installer
           Compress-Archive -Path `
@@ -67,7 +80,7 @@ jobs:
             "bridge.py", `
             "service_manager_v2.py", `
             "core", `
-            "tray_icon.py", `
+            "start-bridge.bat", `
             "requirements.txt", `
             "README.md", `
             "LICENSE" `
@@ -79,7 +92,7 @@ jobs:
             "bridge.py", `
             "service_manager_v2.py", `
             "core", `
-            "tray_icon.py", `
+            "start-bridge.bat", `
             "requirements.txt", `
             "README.md", `
             "LICENSE" `
@@ -95,7 +108,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            installers/HighlightAssist-Setup-*.exe
+            installers/HighlightAssist-Windows-*.zip
             installers/HighlightAssist-Linux-*.zip
             installers/HighlightAssist-macOS-*.zip
         env:

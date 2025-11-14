@@ -24,15 +24,22 @@ from core.health_server import HealthCheckServer
 from core.bridge_monitor import BridgeMonitor
 from core.project_manager import ProjectManager
 from core.preferences import PreferencesManager
-from web_dashboard import DashboardManager
 
-# Try to import tray icon
+# Optional: Dashboard manager (removed from release, kept for development)
 try:
-    from tray_icon import HighlightAssistTray
+    from web_dashboard import DashboardManager  # type: ignore # Optional
+    HAS_DASHBOARD = True
+except ImportError:
+    HAS_DASHBOARD = False
+    DashboardManager = None
+
+# Optional: Tray icon (removed from release, kept for development)
+try:
+    from tray_icon import HighlightAssistTray  # type: ignore # Optional
     HAS_TRAY = True
 except ImportError:
     HAS_TRAY = False
-    print("⚠️  Tray icon disabled (install: pip install pystray pillow)")
+    HighlightAssistTray = None
 
 # Setup logging
 LOG_DIR = Path.home() / '.highlightassist' / 'logs'

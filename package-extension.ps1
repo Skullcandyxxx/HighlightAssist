@@ -5,7 +5,7 @@ Write-Host "`n📦 Packaging HighlightAssist Extension...`n" -ForegroundColor Cy
 
 # Define output directory
 $outputDir = ".\extension-package"
-$timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
+# $timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"  # Reserved for future timestamped builds
 
 # Remove old package if exists
 if (Test-Path $outputDir) {
