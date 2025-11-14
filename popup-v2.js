@@ -38,30 +38,43 @@ class PopupController {
     setupDownloadLinks() {
         const userAgent = navigator.userAgent.toLowerCase();
         const platform = navigator.platform.toLowerCase();
-        const version = '3.3.1'; // Update this when version changes
+        const version = '3.3.2'; // Update this when version changes
         
         let detectedOS = 'Windows';
         let downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/HighlightAssist-Setup-v${version}.exe`;
-        let fileSize = '~15 MB';
+        let fileSize = '~25 MB';
         let icon = '🪟';
         let fileName = `HighlightAssist-Setup-v${version}.exe`;
         let installType = 'installer';
+        let alternativeFormats = [];
         
         // Detect OS
         if (userAgent.indexOf('mac') !== -1 || platform.indexOf('mac') !== -1) {
             detectedOS = 'macOS';
-            fileName = `HighlightAssist-macOS-v${version}.tar.gz`;
+            fileName = `HighlightAssist-macOS-v${version}.pkg`;
             downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${fileName}`;
-            fileSize = '~8 MB';
+            fileSize = '~20 MB';
             icon = '🍎';
             installType = 'package';
+            alternativeFormats = [
+                { name: 'TAR.GZ Archive', file: `HighlightAssist-macOS-v${version}.tar.gz`, icon: '📦' }
+            ];
         } else if (userAgent.indexOf('linux') !== -1 || platform.indexOf('linux') !== -1) {
             detectedOS = 'Linux';
             fileName = `HighlightAssist-Linux-v${version}.deb`;
             downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${fileName}`;
-            fileSize = '~10 MB';
+            fileSize = '~37 MB';
             icon = '🐧';
             installType = 'package';
+            alternativeFormats = [
+                { name: 'RPM Package (Fedora/RHEL)', file: `HighlightAssist-Linux-v${version}.rpm`, icon: '📦' },
+                { name: 'TAR.GZ Archive', file: `HighlightAssist-Linux-v${version}.tar.gz`, icon: '📦' }
+            ];
+        } else {
+            // Windows - add ZIP alternative
+            alternativeFormats = [
+                { name: 'ZIP Archive (portable)', file: `HighlightAssist-Windows-v${version}.zip`, icon: '📦' }
+            ];
         }
         
         // Update detected OS text
@@ -94,16 +107,16 @@ class PopupController {
             primaryButton.download = fileName;
             downloadButtons.appendChild(primaryButton);
             
-            // For Linux, add alternative formats
-            if (detectedOS === 'Linux') {
-                const rpmButton = document.createElement('a');
-                rpmButton.href = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/HighlightAssist-Linux-v${version}.rpm`;
-                rpmButton.className = 'btn btn-secondary btn-sm';
-                rpmButton.style.textDecoration = 'none';
-                rpmButton.innerHTML = '📦 Download RPM (Fedora/RHEL)';
-                rpmButton.download = `HighlightAssist-Linux-v${version}.rpm`;
-                downloadButtons.appendChild(rpmButton);
-            }
+            // Add alternative format buttons
+            alternativeFormats.forEach(format => {
+                const altButton = document.createElement('a');
+                altButton.href = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/${format.file}`;
+                altButton.className = 'btn btn-secondary btn-sm';
+                altButton.style.textDecoration = 'none';
+                altButton.innerHTML = `${format.icon} ${format.name}`;
+                altButton.download = format.file;
+                downloadButtons.appendChild(altButton);
+            });
             
             // Secondary link to all downloads
             const allDownloadsLink = document.createElement('a');
@@ -111,7 +124,8 @@ class PopupController {
             allDownloadsLink.className = 'btn btn-secondary btn-sm';
             allDownloadsLink.style.textDecoration = 'none';
             allDownloadsLink.target = '_blank';
-            allDownloadsLink.innerHTML = '📦 All Downloads (Windows, macOS, Linux)';
+            allDownloadsLink.rel = 'noopener noreferrer';
+            allDownloadsLink.innerHTML = '🌐 View All Formats & Platforms';
             downloadButtons.appendChild(allDownloadsLink);
         }
     }
