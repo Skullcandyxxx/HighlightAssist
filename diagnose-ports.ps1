@@ -23,11 +23,11 @@ function Test-Port {
     return $connections
 }
 
-# Function to get process info from PID
+# Function to get process info from Process ID
 function Get-ProcessInfo {
-    param($PID)
+    param($ProcessId)
     try {
-        $proc = Get-Process -Id $PID -ErrorAction SilentlyContinue
+        $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
         return $proc
     } catch {
         return $null
@@ -47,14 +47,14 @@ foreach ($port in $ports.Keys | Sort-Object) {
     if ($listening) {
         $listening | ForEach-Object {
             $line = $_.ToString().Trim()
-            # Extract PID from netstat output (last column)
+            # Extract Process ID from netstat output (last column)
             if ($line -match '\s+(\d+)\s*$') {
-                $pid = $Matches[1]
-                $proc = Get-ProcessInfo -PID $pid
+                $processId = $Matches[1]
+                $proc = Get-ProcessInfo -ProcessId $processId
                 
                 if ($proc) {
                     Write-Host "    ✅ LISTENING" -ForegroundColor Green
-                    Write-Host "       Process: $($proc.ProcessName) (PID: $pid)" -ForegroundColor Gray
+                    Write-Host "       Process: $($proc.ProcessName) (PID: $processId)" -ForegroundColor Gray
                     Write-Host "       Path: $($proc.Path)" -ForegroundColor Gray
                     Write-Host "       Started: $($proc.StartTime)" -ForegroundColor Gray
                     
@@ -68,11 +68,11 @@ foreach ($port in $ports.Keys | Sort-Object) {
                         
                         if (-not $serviceManager -or $serviceManager.Count -eq 0) {
                             Write-Host "       ⚠️  WARNING: Orphaned bridge process (no service manager)" -ForegroundColor Yellow
-                            $orphanedProcesses += @{PID = $pid; Process = $proc; Port = $port}
+                            $orphanedProcesses += @{PID = $processId; Process = $proc; Port = $port}
                         }
                     }
                 } else {
-                    Write-Host "    ✅ LISTENING (PID: $pid - process exited)" -ForegroundColor Gray
+                    Write-Host "    ✅ LISTENING (PID: $processId - process exited)" -ForegroundColor Gray
                 }
             }
         }

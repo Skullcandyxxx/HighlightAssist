@@ -9,7 +9,7 @@ Write-Host "`n📦 HighlightAssist Release Packager v$Version`n" -ForegroundColo
 
 # Define output directory
 $releaseDir = ".\release-v$Version"
-$timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
+# $timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"  # Reserved for future timestamped builds
 
 # Clean up old release if exists
 if (Test-Path $releaseDir) {
