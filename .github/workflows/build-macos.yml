@@ -49,6 +49,79 @@ jobs:
         run: |
           tar -czf HighlightAssist-macOS-${{ github.ref_name }}.tar.gz -C release .
 
+      - name: Create macOS PKG installer
+        run: |
+          # Get version without 'v' prefix
+          VERSION="${GITHUB_REF_NAME#v}"
+          
+          # Create package structure
+          mkdir -p pkg-root/usr/local/bin
+          mkdir -p pkg-root/Library/LaunchAgents
+          mkdir -p pkg-root/Applications/HighlightAssist.app/Contents/MacOS
+          mkdir -p pkg-root/Applications/HighlightAssist.app/Contents/Resources
+          
+          # Copy executable
+          cp release/HighlightAssist-Service-Manager pkg-root/usr/local/bin/
+          cp -r release/* pkg-root/Applications/HighlightAssist.app/Contents/MacOS/
+          
+          # Create LaunchAgent plist for auto-start
+          cat > pkg-root/Library/LaunchAgents/com.highlightassist.service.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>Label</key>
+              <string>com.highlightassist.service</string>
+              <key>ProgramArguments</key>
+              <array>
+                  <string>/usr/local/bin/HighlightAssist-Service-Manager</string>
+              </array>
+              <key>RunAtLoad</key>
+              <true/>
+              <key>KeepAlive</key>
+              <true/>
+              <key>StandardOutPath</key>
+              <string>/tmp/highlightassist.log</string>
+              <key>StandardErrorPath</key>
+              <string>/tmp/highlightassist.err</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Create Info.plist
+          cat > pkg-root/Applications/HighlightAssist.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>HighlightAssist-Service-Manager</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.highlightassist.app</string>
+              <key>CFBundleName</key>
+              <string>HighlightAssist</string>
+              <key>CFBundleVersion</key>
+              <string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${VERSION}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Copy icon if exists
+          if [ -f "assets/icon-128.png" ]; then
+            cp assets/icon-128.png pkg-root/Applications/HighlightAssist.app/Contents/Resources/
+          fi
+          
+          # Build PKG installer
+          pkgbuild --root pkg-root \
+                   --identifier com.highlightassist \
+                   --version ${VERSION} \
+                   --install-location / \
+                   HighlightAssist-macOS-v${VERSION}.pkg
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -59,6 +132,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: HighlightAssist-macOS-${{ github.ref_name }}.tar.gz
+          files: |
+            HighlightAssist-macOS-${{ github.ref_name }}.tar.gz
+            HighlightAssist-macOS-*.pkg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
