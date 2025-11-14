@@ -1,4 +1,4 @@
-# -*- mode: python ; coding: utf-8 -*-
+﻿# -*- mode: python ; coding: utf-8 -*-
 
 # PyInstaller spec file for HighlightAssist Service Manager v2.0
 # Updated for OOP modular architecture

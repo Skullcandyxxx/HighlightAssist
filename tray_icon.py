@@ -1,4 +1,4 @@
-"""HighlightAssist System Tray Icon
+﻿"""HighlightAssist System Tray Icon
 Beautiful tray icon matching popup/overlay purple gradient theme
 """
 import os

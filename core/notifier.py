@@ -53,7 +53,7 @@ class MacOSNotifier(Notifier):
     def __init__(self):
         self._available = False
         try:
-            import pync
+            import pync  # type: ignore # Optional: macOS only
             self._pync = pync
             self._available = True
         except ImportError:

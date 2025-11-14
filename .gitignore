@@ -49,6 +49,9 @@ desktop.ini
 *.swo
 *~
 
+# Archived old files
+archive-old/
+
 # Temporary files
 *.tmp
 *.temp
