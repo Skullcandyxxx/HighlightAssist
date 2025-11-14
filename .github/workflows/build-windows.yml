@@ -54,13 +54,28 @@ jobs:
           (Get-Content installer-config.iss) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content installer-config.iss
           
           # Compile installer with Inno Setup
+          Write-Output "Running Inno Setup compiler..."
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
           
-          # Create installers directory
-          mkdir -Force installers
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Inno Setup compilation failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
           
-          # Move the generated installer
-          Move-Item "Output\HighlightAssist-Setup-*.exe" "installers\HighlightAssist-Windows-Setup-v$version.exe"
+          # List installers directory to verify
+          Write-Output "Contents of installers directory:"
+          Get-ChildItem installers -ErrorAction SilentlyContinue | Format-Table -AutoSize
+          
+          # Verify the installer was created
+          $installerPath = "installers\HighlightAssist-Setup-v$version.exe"
+          if (-not (Test-Path $installerPath)) {
+            Write-Error "Installer not found at expected path: $installerPath"
+            Write-Output "Searching for installer files..."
+            Get-ChildItem -Filter "HighlightAssist-Setup-*.exe" -Recurse -ErrorAction SilentlyContinue | Format-Table FullName -AutoSize
+            exit 1
+          }
+          
+          Write-Output "✅ Installer created successfully: $installerPath"
         shell: powershell
 
       - name: Create Windows ZIP package
@@ -136,7 +151,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            installers/HighlightAssist-Windows-Setup-*.exe
+            installers/HighlightAssist-Setup-*.exe
             installers/HighlightAssist-Windows-*.zip
             installers/HighlightAssist-Linux-*.zip
             installers/HighlightAssist-macOS-*.zip
