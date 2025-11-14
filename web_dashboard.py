@@ -1,4 +1,4 @@
-"""
+﻿"""
 HighlightAssist Web Dashboard
 A local web interface for managing the HighlightAssist daemon
 Similar to Unified Remote's clean UI design

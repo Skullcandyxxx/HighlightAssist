@@ -1,4 +1,4 @@
-; HighlightAssist Windows Installer Script
+﻿; HighlightAssist Windows Installer Script
 ; Inno Setup Configuration File
 ; https://jrsoftware.org/isinfo.php
 
