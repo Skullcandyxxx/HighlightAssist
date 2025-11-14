@@ -38,7 +38,7 @@ class PopupController {
     setupDownloadLinks() {
         const userAgent = navigator.userAgent.toLowerCase();
         const platform = navigator.platform.toLowerCase();
-        const version = '2.0.0'; // Update this when version changes
+        const version = '3.3.1'; // Update this when version changes
         
         let detectedOS = 'Windows';
         let downloadUrl = `https://github.com/Skullcandyxxx/HighlightAssist/releases/download/v${version}/HighlightAssist-Setup-v${version}.exe`;
