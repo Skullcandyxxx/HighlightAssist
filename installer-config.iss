@@ -124,6 +124,7 @@ var
   IsUpgrade: Boolean;
   IsSilentUpgrade: Boolean;
   ServiceWasRunning: Boolean;
+  KeepUserData: Boolean;
 
 function IsServiceRunning(): Boolean;
 var
@@ -276,6 +277,7 @@ var
   Response: Integer;
 begin
   Result := True;
+  KeepUserData := False;  // Default to not keeping data
   
   // Check if service is running before uninstall
   if IsServiceRunning() then
@@ -310,24 +312,22 @@ begin
   else if Response = IDYES then
   begin
     // User wants to keep data - set flag
-    SetEnvironmentVariable('HIGHLIGHTASSIST_KEEP_DATA', '1');
+    KeepUserData := True;
   end
   else
   begin
-    // User wants to remove everything - clear flag
-    SetEnvironmentVariable('HIGHLIGHTASSIST_KEEP_DATA', '0');
+    // User wants to remove everything
+    KeepUserData := False;
   end;
 end;
 
 procedure DeinitializeUninstall();
 var
-  KeepData: String;
   DataFolder: String;
 begin
-  KeepData := GetEnv('HIGHLIGHTASSIST_KEEP_DATA');
   DataFolder := ExpandConstant('{localappdata}\HighlightAssist');
   
-  if KeepData = '1' then
+  if KeepUserData then
   begin
     MsgBox('HighlightAssist has been uninstalled.' + #13#13 +
            'Your personal data has been preserved at:' + #13 +
@@ -347,12 +347,11 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ $client = New-Object System.Net.Sockets.TcpClient('localhost', 5054); $stream = $client.GetStream(); $writer = New-Object System.IO.StreamWriter($stream); $writer.WriteLine('{{\""action\"":\""stop\""}}'); $writer.Flush(); Start-Sleep -Seconds 2; $client.Close() }} catch {{ }}"""; Flags: runhidden; RunOnceId: "GracefulStop"
 ; Force stop the daemon if still running
 Filename: "{cmd}"; Parameters: "/c timeout /t 2 /nobreak >nul & taskkill /F /IM ""{#MyAppExeName}"" 2>nul"; Flags: runhidden; RunOnceId: "ForceStopDaemon"
-; Conditional cleanup - only remove user data if user chose to
-Filename: "{cmd}"; Parameters: "/c if ""%HIGHLIGHTASSIST_KEEP_DATA%""==""0"" rmdir /s /q ""{localappdata}\HighlightAssist"""; Flags: runhidden; RunOnceId: "CleanupUserData"
 
 [UninstallDelete]
 ; Always delete application files
 Type: filesandordirs; Name: "{app}"
-; User data is handled by UninstallRun based on user choice
+; Conditional: Only delete user data if user chose to remove everything
+Type: filesandordirs; Name: "{localappdata}\HighlightAssist"; Check: not KeepUserData
 
 
