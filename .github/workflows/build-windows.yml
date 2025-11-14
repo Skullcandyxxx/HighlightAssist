@@ -53,78 +53,143 @@ jobs:
           # Update version in Inno Setup script
           (Get-Content installer-config.iss) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content installer-config.iss
           
-          # Compile installer with Inno Setup
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss
-          
+          # Compile installer with Inno Setup and capture output
+          Write-Output "Running ISCC.exe..."
+          $isccOutput = & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer-config.iss 2>&1 | Tee-Object -Variable isccLines
+          $isccExit = $LASTEXITCODE
+          Write-Output "ISCC exit code: $isccExit"
+          Write-Output "ISCC output:\n" + ($isccLines -join "\n")
+
+          # List current dir and Output dir for diagnostics
+          Write-Output "Listing repository root:"
+          Get-ChildItem -Force | Sort-Object Name | Format-Table -AutoSize
+          if (Test-Path Output) {
+            Write-Output "Listing Output directory:"
+            Get-ChildItem -Path Output -Force | Sort-Object Name | Format-Table -AutoSize
+          } else {
+            Write-Output "Output directory not found"
+          }
+
           # Create installers directory
           mkdir -Force installers
-          
+
+          # If ISCC failed, show output and fail early
+          if ($isccExit -ne 0) {
+            Write-Error "ISCC returned exit code $isccExit. See ISCC output above."
+            exit $isccExit
+          }
+
+          # Find the generated installer anywhere in the workspace
+          $installer = Get-ChildItem -Path . -Filter 'HighlightAssist-Setup-*.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "Installer not found after ISCC run. See ISCC output and directory listings above."
+            exit 1
+          }
+
+          Write-Output "Found installer at: $($installer.FullName)"
+
           # Move the generated installer
-          Move-Item "Output\HighlightAssist-Setup-*.exe" "installers\HighlightAssist-Windows-Setup-v$version.exe"
+          Move-Item -Path $installer.FullName -Destination "installers\HighlightAssist-Windows-Setup-v$version.exe" -Force
         shell: powershell
 
       - name: Create Windows ZIP package
         run: |
-          # Create installers directory if it doesn't exist
           mkdir -Force installers
-          
+
           # Get version from tag or use "dev"
           $version = if ("${{ github.ref_name }}" -match '^v') { 
             "${{ github.ref_name }}".TrimStart('v') 
           } else { 
             "dev" 
           }
-          
-          # Package Windows installer (includes .exe)
-          Compress-Archive -Path `
-            "dist\HighlightAssist-Service-Manager.exe", `
-            "bridge.py", `
-            "service_manager_v2.py", `
-            "core", `
-            "install-windows.bat", `
-            "start-service.bat", `
-            "start-bridge.bat", `
-            "requirements.txt", `
-            "README.md", `
-            "LICENSE" `
-            -DestinationPath "installers\HighlightAssist-Windows-v$version.zip" -Force
+
+          # Build list of expected files for Windows package
+          $expected = @(
+            'dist\HighlightAssist-Service-Manager.exe',
+            'bridge.py',
+            'service_manager_v2.py',
+            'core',
+            'install-windows.bat',
+            'start-service.bat',
+            'start-bridge.bat',
+            'requirements.txt',
+            'README.md',
+            'LICENSE'
+          )
+
+          $missing = @()
+          $pathsToArchive = @()
+          foreach ($p in $expected) {
+            if (Test-Path $p) { $pathsToArchive += $p } else { $missing += $p }
+          }
+
+          if ($missing.Count -gt 0) {
+            Write-Error "Missing expected files for Windows ZIP: $($missing -join ', ')"
+            Write-Output "Listing dist directory for debugging:"
+            if (Test-Path dist) { Get-ChildItem -Path dist -Force | Format-Table -AutoSize }
+            exit 1
+          }
+
+          Compress-Archive -Path $pathsToArchive -DestinationPath "installers\HighlightAssist-Windows-v$version.zip" -Force
         shell: powershell
 
       - name: Create Linux/macOS packages
         run: |
-          # Create installers directory if it doesn't exist
           mkdir -Force installers
-          
-          # Get version from tag
+
           $version = if ("${{ github.ref_name }}" -match '^v') { 
             "${{ github.ref_name }}".TrimStart('v') 
           } else { 
             "dev" 
           }
-          
-          # Package Linux installer
-          Compress-Archive -Path `
-            "install-linux.sh", `
-            "bridge.py", `
-            "service_manager_v2.py", `
-            "core", `
-            "start-bridge.bat", `
-            "requirements.txt", `
-            "README.md", `
-            "LICENSE" `
-            -DestinationPath "installers\HighlightAssist-Linux-v$version.zip" -Force
-          
-          # Package macOS installer
-          Compress-Archive -Path `
-            "install-macos.sh", `
-            "bridge.py", `
-            "service_manager_v2.py", `
-            "core", `
-            "start-bridge.bat", `
-            "requirements.txt", `
-            "README.md", `
-            "LICENSE" `
-            -DestinationPath "installers\HighlightAssist-macOS-v$version.zip" -Force
+
+          $expectedLinux = @(
+            'install-linux.sh',
+            'bridge.py',
+            'service_manager_v2.py',
+            'core',
+            'start-bridge.bat',
+            'requirements.txt',
+            'README.md',
+            'LICENSE'
+          )
+
+          $missing = @()
+          $pathsToArchive = @()
+          foreach ($p in $expectedLinux) {
+            if (Test-Path $p) { $pathsToArchive += $p } else { $missing += $p }
+          }
+
+          if ($missing.Count -gt 0) {
+            Write-Error "Missing expected files for Linux ZIP: $($missing -join ', ')"
+            exit 1
+          }
+
+          Compress-Archive -Path $pathsToArchive -DestinationPath "installers\HighlightAssist-Linux-v$version.zip" -Force
+
+          $expectedMac = @(
+            'install-macos.sh',
+            'bridge.py',
+            'service_manager_v2.py',
+            'core',
+            'start-bridge.bat',
+            'requirements.txt',
+            'README.md',
+            'LICENSE'
+          )
+
+          $missing = @()
+          $pathsToArchive = @()
+          foreach ($p in $expectedMac) {
+            if (Test-Path $p) { $pathsToArchive += $p } else { $missing += $p }
+          }
+
+          if ($missing.Count -gt 0) {
+            Write-Error "Missing expected files for macOS ZIP: $($missing -join ', ')"
+            exit 1
+          }
+
+          Compress-Archive -Path $pathsToArchive -DestinationPath "installers\HighlightAssist-macOS-v$version.zip" -Force
         shell: powershell
 
       - name: List all installers
